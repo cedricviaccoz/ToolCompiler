@@ -3,6 +3,7 @@ package eval
 
 import ast.Trees._
 import utils._
+import com.sun.org.apache.xalan.internal.xsltc.compiler.ForEach
 
 class Evaluator(ctx: Context, prog: Program) {
   import ctx.reporter._
@@ -13,36 +14,138 @@ class Evaluator(ctx: Context, prog: Program) {
   }
 
   def evalStatement(stmt: StatTree)(implicit ectx: EvaluationContext): Unit = stmt match {
-    case Block(stats) => ???
-    case If(expr, thn, els) => ???
-    case While(expr, stat) => ???
-    case Println(expr) => ???
-    case Assign(id, expr) => ???
-    case ArrayAssign(id, index, expr) => ???
-    case DoExpr(expr) => ???
+    //not totally sure about this one, I mainly copied what is coded with "eval()"
+    case Block(stats) => stats.foreach(evalStatement(_))
+    
+    case If(expr, thn, els) => 
+      if(evalExpr(expr).asBool) evalStatement(thn)
+      else els match{case Some(code) => evalStatement(code); case None =>}
+    
+    case While(expr, stat) =>
+      while(evalExpr(expr).asBool){
+        evalStatement(stat)
+      }
+      
+    case Println(expr) => evalExpr(expr) match{
+      case StringValue(str) => println(str)
+      case IntValue(int) => println(int)
+      case BoolValue(bool) => println(bool)
+      case _ => fatal("println can only be used on Strings, Int and Bools.")
+    }
+    
+    case Assign(id, expr) => ectx.setVariable(id.value, evalExpr(expr))
+    
+    case ArrayAssign(id, index, expr) => 
+      ectx.getVariable(id.value).asArray.setIndex(evalExpr(index).asInt, evalExpr(expr).asInt)
+      
+    //not sure if declaring a "val" isn't considered a return value in the mad-world of Scala.
+    case DoExpr(expr) => val void = evalExpr(expr) 
   }
+  
 
-  def evalExpr(e: ExprTree)(implicit ectx: EvaluationContext): Value = e match {
-    case IntLit(value) => IntValue(value)
-    case StringLit(value) => ???
-    case True() => ???
-    case False() => ???
-    case And(lhs, rhs) => ???
-    case Or(lhs, rhs)  => ???
-    case Plus(lhs, rhs) => ???
-    case Minus(lhs, rhs) => ???
-    case Times(lhs, rhs) => ???
-    case Div(lhs, rhs) => ???
-    case LessThan(lhs, rhs) => ???
-    case Not(expr) => ???
-    case Equals(lhs, rhs) => ???
-    case ArrayRead(arr, index) => ???
-    case ArrayLength(arr) => ???
-    case MethodCall(obj, meth, args) => ???
-    case Variable(Identifier(name)) => ???
-    case New(tpe) => ???
-    case This() => ???
-    case NewIntArray(size) => ???
+  def evalExpr(e: ExprTree)(implicit ectx: EvaluationContext): Value = {
+    
+      //to avoid code repetition in the basic arithmetic evaluation.    
+      def arithmeticIntHelper(lhs: ExprTree, rhs: ExprTree, msg: String, operator: (Int, Int) => Int): Value = 
+        (evalExpr(lhs), evalExpr(rhs)) match{
+          case (int1: IntValue, int2: IntValue) => IntValue(operator(int1.asInt, int2.asInt))
+          case _ => fatal(msg+" only defined for Int type")
+        }
+        
+      e match {
+          case IntLit(value) => IntValue(value)
+          case StringLit(value) => StringValue(value)
+          case True() => BoolValue(true)
+          case False() => BoolValue(false)
+          
+          //scala already makes some short-circuiting itself, so no need to implement it explicitly here for tool.
+          case And(lhs, rhs) => BoolValue(evalExpr(lhs).asBool && evalExpr(rhs).asBool) 
+          case Or(lhs, rhs)  => BoolValue(evalExpr(lhs).asBool || evalExpr(rhs).asBool)
+          
+          case Plus(lhs, rhs) => 
+            val l = evalExpr(lhs)
+            val r = evalExpr(rhs)
+            (l, r) match{
+              case (int1: IntValue, int2: IntValue) => IntValue(int1.asInt + int2.asInt)
+              case (int: IntValue, str: StringValue) => StringValue(int.asInt + str.asString)
+              case (str: StringValue, int: IntValue) => StringValue(str.asString + int.asInt)
+              case (str1: StringValue, str2: StringValue) => StringValue(str1.asString + str2.asString)
+              case _ => fatal("Type Error for addition")
+            }
+            
+          case Minus(lhs, rhs) => arithmeticIntHelper(lhs, rhs, "substraction", _-_)
+            
+          case Times(lhs, rhs) => arithmeticIntHelper(lhs, rhs, "multiplication", _*_)
+          
+          case Div(lhs, rhs) => arithmeticIntHelper(lhs, rhs, "substraction", _/_)
+          
+          case LessThan(lhs, rhs) => (evalExpr(lhs), evalExpr(rhs)) match{
+              case (int1: IntValue, int2: IntValue) => BoolValue(int1.asInt < int2.asInt)
+              case _ => fatal("< only defined for Int type")
+          }
+          
+          case Not(expr) => BoolValue(!evalExpr(expr).asBool)
+          
+          case Equals(lhs, rhs) => 
+             val l = evalExpr(lhs)
+             val r = evalExpr(rhs)
+             (l,r) match {
+               case (IntValue(int1), IntValue(int2)) => BoolValue(int1 == int2)
+               case (BoolValue(bool1), BoolValue(bool2)) => BoolValue(bool1 == bool2)
+               case (_: ArrayValue, _: ArrayValue) => BoolValue(l eq r)
+               case (_: ObjectValue, _: ObjectValue) => BoolValue(l eq r)
+               case (_: StringValue, _: StringValue) => BoolValue(l eq r)
+               case _ => fatal("Type Error")
+             }
+             
+          case ArrayRead(arr, index) => IntValue(evalExpr(arr).asArray.getIndex(evalExpr(index).asInt))
+          
+          case ArrayLength(arr) => IntValue(evalExpr(arr).asArray.length)
+          
+          case MethodCall(obj, meth, args) =>
+            val currObject: ObjectValue = evalExpr(obj).asObject
+            val currClass: ClassDecl = currObject.cd
+            val currMethod: MethodDecl = findMethod(currClass, meth.value)
+            val funcContext = new MethodContext(currObject)
+            /*
+             * this is an insane two days of reflection code stub...
+             * this serves a way to get the fields of the class
+             * to be accessible from the funcContext.
+             */
+            fieldsOfClass(currClass) foreach {
+              str => 
+                currObject.fields(str) match{
+                  case Some(v) => funcContext.setVariable(str, v)
+                  case None => funcContext.declareVariable(str)
+                }
+              }
+            /*
+             * Now we need to associate the evaluation of the argument to
+             * the "fields" of the method. then we will finally be able
+             * to run the code of the m|ethod. 
+             * Hell.
+             * Apparently the method declaration got everything you need bro.
+             */
+            val evaluatedArgs: List[Value] = args.map{evalExpr(_)}
+            val itr1: Iterator[Value] = evaluatedArgs.iterator
+            //note maybe it is something else we need to bind (maybe the vars field of the methodDecl ?)
+            val itr2: Iterator[Formal] = currMethod.args.iterator
+            while(itr1.hasNext && itr2.hasNext){
+                  funcContext.setVariable(itr2.next().id.value, itr1.next())
+            }
+            //if any of the two iterators have still somethin, it means the method had too much or too less arguments.
+            if(!(itr1.hasNext || itr2.hasNext)) fatal("Wrong number of arguments")
+            currMethod.stats.foreach(evalStatement(_)(funcContext))
+            evalExpr(currMethod.retExpr)(funcContext)
+              
+          case Variable(Identifier(name)) => ectx.getVariable(name)
+          case New(tpe) => ObjectValue(findClass(tpe.value))
+          case This() => ectx match{
+            case _: MainContext => fatal("can't reach 'this' on the MainContext")
+            case ctx : MethodContext => ctx.obj
+          }
+          case NewIntArray(size) => ArrayValue(new Array[Int](evalExpr(size).asInt))
+    }
   }
 
   abstract class EvaluationContext {
@@ -92,7 +195,14 @@ class Evaluator(ctx: Context, prog: Program) {
   def findClass(name: String): ClassDecl = {
     prog.classes.find(_.id.value == name).getOrElse(fatal("Unknown class '"+name+"'"))
   }
-
+  
+  /*
+   * for when you got 
+   * class A{
+   *  var a;
+   *  var b;
+   * }
+   */
   def fieldsOfClass(cl: ClassDecl): Set[String] = {
     cl.vars.map(_.id.value).toSet ++
       cl.parent.map(p => fieldsOfClass(findClass(p.value))).getOrElse(Set())
