@@ -1,8 +1,8 @@
 package toolc
 
 import utils._
+import lexer._
 import java.io.File
-import eval._
 
 object Main {
 
@@ -20,13 +20,10 @@ object Main {
 
   def main(args: Array[String]) {
     val ctx = processOptions(args)
-
-    val program = new Frontend().run(ctx)(ctx.files.head)
-
-    val evaluator = new Evaluator(ctx, program)
-
-    evaluator.eval()
-
+    val pipeline = Lexer andThen
+                   DisplayTokens
+    pipeline.run(ctx)(ctx.files.head)
+    ctx.reporter.terminateIfErrors()
   }
 
 }
