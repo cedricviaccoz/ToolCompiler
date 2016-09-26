@@ -127,14 +127,12 @@ class Evaluator(ctx: Context, prog: Program) {
              * Apparently the method declaration got everything you need bro.
              */
             val evaluatedArgs: List[Value] = args.map{evalExpr(_)}
-            val itr1: Iterator[Value] = evaluatedArgs.iterator
+            val methodArgs : List[Formal] = currMethod.args
             //note maybe it is something else we need to bind (maybe the vars field of the methodDecl ?)
-            val itr2: Iterator[Formal] = currMethod.args.iterator
-            while(itr1.hasNext && itr2.hasNext){
-                  funcContext.setVariable(itr2.next().id.value, itr1.next())
+            val varPlusValue: List[(Formal, Value)] = methodArgs zip evaluatedArgs//make a tuple
+            for((a, v) <- varPlusValue){
+              funcContext.setVariable(a.id.value, v)
             }
-            //if any of the two iterators have still somethin, it means the method had too much or too less arguments.
-            if(!(itr1.hasNext || itr2.hasNext)) fatal("Wrong number of arguments")
             currMethod.stats.foreach(evalStatement(_)(funcContext))
             evalExpr(currMethod.retExpr)(funcContext)
               
