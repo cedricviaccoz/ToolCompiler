@@ -40,10 +40,14 @@ class Evaluator(ctx: Context, prog: Program) {
       
     //not sure if declaring a "val" isn't considered a return value in the mad-world of Scala.
     case DoExpr(expr) => val void = evalExpr(expr) 
+    
+    //it would be great if i had a way to do this.
+    //case VarDecl(tpe, id) => ectx.declareVariable(id.value)
   }
   
 
   def evalExpr(e: ExprTree)(implicit ectx: EvaluationContext): Value = {
+    //TODO you need to treat the case var b: Bool. with ectx.declareVariable
     
       //to avoid code repetition in the basic arithmetic evaluation.    
       def arithmeticIntHelper(lhs: ExprTree, rhs: ExprTree, msg: String, operator: (Int, Int) => Int): Value = 
@@ -108,18 +112,6 @@ class Evaluator(ctx: Context, prog: Program) {
             val currMethod: MethodDecl = findMethod(currClass, meth.value)
             val funcContext = new MethodContext(currObject)
             /*
-             * this is an insane two days of reflection code stub...
-             * this serves a way to get the fields of the class
-             * to be accessible from the funcContext.
-             */
-            fieldsOfClass(currClass) foreach {
-              str => 
-                currObject.fields(str) match{
-                  case Some(v) => funcContext.setVariable(str, v)
-                  case None => funcContext.declareVariable(str)
-                }
-              }
-            /*
              * Now we need to associate the evaluation of the argument to
              * the "fields" of the method. then we will finally be able
              * to run the code of the m|ethod. 
@@ -128,16 +120,34 @@ class Evaluator(ctx: Context, prog: Program) {
              */
             val evaluatedArgs: List[Value] = args.map{evalExpr(_)}
             val methodArgs : List[Formal] = currMethod.args
-            //note maybe it is something else we need to bind (maybe the vars field of the methodDecl ?)
-            val varPlusValue: List[(Formal, Value)] = methodArgs zip evaluatedArgs//make a tuple
+            
+            //adding the name of the args to the funcContext
+            methodArgs foreach (formal => funcContext.declareVariable(formal.id.value))
+            
+            //bindings the arguments of the method with the computed values.
+            val varPlusValue: List[(Formal, Value)] = methodArgs zip evaluatedArgs //make a list of tuple
             for((a, v) <- varPlusValue){
               funcContext.setVariable(a.id.value, v)
             }
+            
+            //adding the vars of the method declaration to the funcContext
+            currMethod.vars foreach (v => funcContext.declareVariable(v.id.value))
+            
+            //evaluation of the statements of the method.
             currMethod.stats.foreach(evalStatement(_)(funcContext))
-            evalExpr(currMethod.retExpr)(funcContext)
-              
+            
+            //evaluation of the return expression.
+            evalExpr(currMethod.retExpr)(funcContext)      
+            
           case Variable(Identifier(name)) => ectx.getVariable(name)
-          case New(tpe) => ObjectValue(findClass(tpe.value))
+          
+          case New(tpe) => {
+            //we need to initalise all the fields of the class in the current instantiated object.
+            val currClass: ClassDecl = findClass(tpe.value)
+            val currObj: ObjectValue = ObjectValue(currClass)
+            fieldsOfClass(currClass) foreach (str => currObj.declareField(str))
+            return currObj
+          }
           case This() => ectx match{
             case _: MainContext => fatal("can't reach 'this' on the MainContext")
             case ctx : MethodContext => ctx.obj
