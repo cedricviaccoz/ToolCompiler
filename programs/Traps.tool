@@ -29,32 +29,32 @@ class Test{
 	//short-circuiting tests.
 	def shortCircuit(): Int = {
       		var b: Bool;
-		b = (new Bools().prinfFoo() && new Bools().printBar()); //should print "foo"
+		b = (new Bools().printFoo() && new Bools().printBar()); //should print "foo"
 		b = (new Bools().printBar() || new Bools().printFoo()); //should print "bar"
 		return 0;
 	}
 				
 	//equality tests
 	def equality(): Int = {
-		var b: Bool;
+			var b: Bool;
       		b = (42 == 42);
       		println(b);                  // true
-		b = (new A() == new A());
-		println(b);        	     // false
+			b = (new A() == new A());
+			println(b);        	     // false
       		b = (new A() == new B());
         	println(b);                  // false
-		//"foo" == 42;               // Type Error...
-		b = ("f" + "oo" == "fo" + "o");
+			//"foo" == 42;               // Type Error...
+			b = ("f" + "oo" == "fo" + "o");
       		println(b);  		     // false
-		return 0;
+			return 0;
 	}
 	
 
 	//ArrayTest
 	def ArrayTest(size: Int): Int = {
 		var arr: Int[];
-		arr = new Int[size];
 		var b: Bool;
+		arr = new Int[size];
 		b = (size == arr.length);
 		println(b);			//should be true.
 		arr[0] = 41;
