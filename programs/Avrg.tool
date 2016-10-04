@@ -5,7 +5,7 @@ program Avrg {
 class Devi{
 
      var array : Int[];
-     var avrg: Double;
+     var avrg: Int;
 
      //arbitrarely filling the array bc why not.
      def init(size: Int): Devi = {
@@ -39,7 +39,7 @@ class Devi{
       		return this;
       }	
 
-      def print(): Boolean = {
+      def print(): Bool = {
       		var i: Int;
       		i = 0;
       		while(i < array.length){

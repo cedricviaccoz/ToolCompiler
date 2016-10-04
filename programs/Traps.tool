@@ -10,12 +10,12 @@ program Traps {
 //class definitions for the tests.
  
 class Bools {
-	def printFoo(): Boolean = {
+	def printFoo(): Bool = {
 	  println("foo");
 	  return false;
 	}
 
-	def printBar(): Boolean = {
+	def printBar(): Bool = {
 	  println("bar");
 	  return true;
 	}
