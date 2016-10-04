@@ -2,6 +2,7 @@ package toolc
 
 import utils._
 import lexer._
+import ast._
 import java.io.File
 
 object Main {
@@ -20,10 +21,10 @@ object Main {
 
   def main(args: Array[String]) {
     val ctx = processOptions(args)
-    val pipeline = Lexer andThen
-                   DisplayTokens
-    pipeline.run(ctx)(ctx.files.head)
+    val pipeline = Lexer andThen Parser
+    val ast = pipeline.run(ctx)(ctx.files.head)
     ctx.reporter.terminateIfErrors()
+    println(Printer(ast))
   }
 
 }
