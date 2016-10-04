@@ -139,6 +139,8 @@ class Evaluator(ctx: Context, prog: Program) {
             //evaluation of the return expression.
             evalExpr(currMethod.retExpr)(funcContext)      
             
+            //then it's done. yEAH.
+            
           case Variable(Identifier(name)) => ectx.getVariable(name)
           
           case New(tpe) => {
