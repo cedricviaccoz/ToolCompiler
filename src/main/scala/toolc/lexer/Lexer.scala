@@ -162,14 +162,11 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
         //The position at the beginning of the current comment to report in case of failing.
         val posOfComment = currentPos 
         consume(2)
-        while(!(currentChar == '*' && nextChar == '/') && (currentChar != EndOfFile)){
-          if(currentChar == EndOfFile || nextChar == EndOfFile){
-            error("Missing */ to end this bloc comment.", posOfComment)
-          }
+        while(!((currentChar == '*' && nextChar == '/') || (currentChar == EndOfFile))){
           consume()
         }
-        nextToken(
-            )
+        consume(2)
+        nextToken()
       } else {
         readToken()
       }
@@ -178,7 +175,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     lazy val listOfDigits: List[Char] = List('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
     lazy val listOfAlphaDigits: List[Char] = List('0', '1', '2', '3', '4', '5', '6', '7', '8', 
          '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 
-         'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
+         'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'/*MY GOD THIS FUCKER*/,'_')
          
     /** Reads the next token from the stream. */
     //@scala.annotation.tailrec
