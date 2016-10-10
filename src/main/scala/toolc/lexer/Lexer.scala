@@ -30,6 +30,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     case "||" => Some(OR())
     case "<" => Some(LESSTHAN())
     case "+" => Some(PLUS())
+    case "-" => Some(MINUS())
     case "*" => Some(TIMES())
     case "/" => Some(DIV())
     case "program" => Some(PROGRAM())
@@ -69,11 +70,27 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     case '}' => true
     case '<' => true
     case '+' => true
+    case '-' => true
     case '*' => true
     case '/' => true
     case _ => false
   }
   
+  //that's a very lazy way to treat such case but fuck it
+  private def thoseExceptions(c1: Char, c2: Char): Boolean = {
+    var s = c1.toString() + c2.toString()
+    s match{
+      case "((" => true
+      case "))" => true
+      case ";;" => true
+      case "{{" => true
+      case "}}" => true
+      case "]]" => true
+      case "[[" => true
+      case _ => false
+    }
+    
+  }  
   private def isDoubledChar(c1: Char, c2: Char): Boolean = c1 == c2
 
 
@@ -165,8 +182,8 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
       // The position at the beginning of the token.
       val tokenPos: Positioned = currentPos
       
-      //first testing the case of a StringLiteral and wether it's closed.
       if(currentChar == '"'){
+        
         consume() //to avoid putting the " in the String.
         var str: String = ""
         while(currentChar != '"' && currentChar != EndOfFile){
@@ -178,8 +195,11 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
         }
         consume() // for currentChar not to be == '"' after that.
         STRINGLIT(str).setPos(tokenPos)
+        
       }
-      else if(isDoubledChar(currentChar, nextChar) && isASpecialChar(currentChar)){
+      else if(isDoubledChar(currentChar, nextChar) 
+              && isASpecialChar(currentChar) 
+              && !thoseExceptions(currentChar, nextChar)){
         
         //testing the case of token such as "&&", "||" and "=="
         val s: String = currentChar.toString() + nextChar.toString()
@@ -194,7 +214,8 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
         consume()
         tokenAfterKW(previousChar, tokenPos) 
         
-      }
+      }else if(currentChar == EndOfFile)
+        EOF().setPos(tokenPos)
       else{
         /*now trying to iterate to find a token that is either a keyword, 
          * an identifier, or a IntLitteral.
@@ -210,9 +231,9 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
           case None => {
             //now we need to test wether it's and identifier, or a Intliteral
             if(tokToTest != "" && tokToTest.forall { c => listOfDigits.contains(c)}){
-              INTLIT(tokToTest.toInt)
+              INTLIT(tokToTest.toInt).setPos(tokenPos)
             }else{
-              ID(tokToTest)
+              ID(tokToTest).setPos(tokenPos)
             }
           }
         }
