@@ -176,6 +176,10 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     }
     
     lazy val listOfDigits: List[Char] = List('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
+    lazy val listOfAlphaDigits: List[Char] = List('0', '1', '2', '3', '4', '5', '6', '7', '8', 
+         '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 
+         'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
+         
     /** Reads the next token from the stream. */
     //@scala.annotation.tailrec
     def readToken(): Token = {
@@ -232,8 +236,11 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
             //now we need to test wether it's and identifier, or a Intliteral
             if(tokToTest != "" && tokToTest.forall { c => listOfDigits.contains(c)}){
               INTLIT(tokToTest.toInt).setPos(tokenPos)
-            }else{
+            }else if(tokToTest != "" && tokToTest.forall{c => listOfAlphaDigits.contains(c.toLower)}) {
               ID(tokToTest).setPos(tokenPos)
+            }else{
+              error("not conform character written", tokenPos)
+              BAD().setPos(tokenPos)
             }
           }
         }
@@ -244,7 +251,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     def tokenAfterKW(s: String, tokenPos: Positioned): Token = {
       keywords(s) match {
           case Some(token) => token.setPos(tokenPos)
-          case None => BAD().setPos(tokenPos)
+          case None => error("not conform character written,", tokenPos);BAD().setPos(tokenPos)
       }
     }
 
