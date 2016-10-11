@@ -184,6 +184,9 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
         while(!((currentChar == '*' && nextChar == '/') || (currentChar == EndOfFile))){
           consume()
         }
+        if(currentChar == EndOfFile){
+          error("the comment block did never close !", posOfComment)
+        }
         consume(2)
         nextToken()
       } else {
