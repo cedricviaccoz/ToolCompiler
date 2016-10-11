@@ -188,8 +188,13 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
         consume() //to avoid putting the " in the String.
         var str: String = ""
         while(currentChar != '"' && currentChar != EndOfFile){
+          if(currentChar == '\n' || currentChar == '\r'){
+            error("there should not be back to the line in String Literals", tokenPos)
+            consume()
+          }else{
            str += currentChar
-           consume()
+           consume() 
+          }
         }
         if(currentChar == EndOfFile){
           error("String Literal not closed", tokenPos)
@@ -234,7 +239,12 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
             if(tokToTest != "" && tokToTest.forall { c => listOfDigits.contains(c)}){
               INTLIT(tokToTest.toInt).setPos(tokenPos)
             }else if(tokToTest != "" && tokToTest.forall{c => listOfAlphaDigits.contains(c.toLower)}) {
-              ID(tokToTest).setPos(tokenPos)
+              if(tokToTest(0) == '_'){
+                error("an identifier should not start with '_'", tokenPos)
+                BAD().setPos(tokenPos)
+              }else{
+                ID(tokToTest).setPos(tokenPos) 
+              }
             }else{
               error("not conform character written", tokenPos)
               BAD().setPos(tokenPos)
