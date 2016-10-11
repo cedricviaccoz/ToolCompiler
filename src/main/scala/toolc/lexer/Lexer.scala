@@ -73,6 +73,25 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     case '-' => true
     case '*' => true
     case '/' => true
+    case '?' => true
+    case '^' => true
+    case '#' => true
+    case '|' => true
+    case '&' => true
+    case '@' => true
+    case '~' => true
+    case '¬' => true
+    case '>' => true
+    case '§' => true
+    case '°' => true
+    case '½' => true
+    case '%' => true
+    case '¢' => true
+    case '´' => true
+    case '`' => true
+    case '$' => true
+    case '£' => true
+    case '¨' => true
     case _ => false
   }
   
@@ -189,7 +208,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
         var str: String = ""
         while(currentChar != '"' && currentChar != EndOfFile){
           if(currentChar == '\n' || currentChar == '\r'){
-            error("there should not be back to the line in String Literals", tokenPos)
+            error("there should not be back to the line in String Literals", currentPos)
             consume()
           }else{
            str += currentChar
@@ -242,11 +261,15 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
               if(tokToTest(0) == '_'){
                 error("an identifier should not start with '_'", tokenPos)
                 BAD().setPos(tokenPos)
+              }else if(listOfDigits.contains(tokToTest(0))){
+                error("an identifier should always start with a letter", tokenPos)
+                BAD().setPos(tokenPos)
+                
               }else{
                 ID(tokToTest).setPos(tokenPos) 
               }
             }else{
-              error("not conform character written", tokenPos)
+              error("not conform character written", currentPos)
               BAD().setPos(tokenPos)
             }
           }
