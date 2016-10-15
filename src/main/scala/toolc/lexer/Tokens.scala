@@ -1,6 +1,7 @@
 package toolc
 package lexer
 
+import grammarcomp.grammar.CFGrammar.TerminalClass
 import utils._
 
 sealed class Token extends Positioned
@@ -50,12 +51,15 @@ object Tokens {
   case class DO()         extends Token // do(expr)
 
   // Identifiers
-  case class ID(val value: String) extends Token
+  case class ID(val value: String) extends Token with TerminalClass
 
   // Integer literals
-  case class INTLIT(val value: Int) extends Token
+  case class INTLIT(val value: Int) extends Token with TerminalClass
 
   // String literals
-  case class STRINGLIT(val value: String) extends Token
+  case class STRINGLIT(val value: String) extends Token with TerminalClass
 
+  val IDSENT = ID("")
+  val INTLITSENT = INTLIT(0)
+  val STRINGLITSENT = STRINGLIT("")  
 }
