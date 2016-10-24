@@ -93,7 +93,7 @@ object Printer {
 
       case IntArrayType() => "Int[]"
       case IntType() => "Int"
-      case BooleanType() => "Boolean"
+      case BooleanType() => "Bool"
       case StringType() => "String"
       case ClassType(id) => rec(id)
 
@@ -164,11 +164,11 @@ object Printer {
       case This() =>
         "this"
       case NewIntArray(size) =>
-        "new Int[" <:> rec(size) <:> "]"
+        "(new Int[" <:> rec(size) <:> "])"
       case New(tpe) =>
-        "new " <:> rec(tpe) <:> "()"
+        "(new " <:> rec(tpe) <:> "())"
       case Not(expr) =>
-        "!(" <:> rec(expr) <:> ")"
+        "(!(" <:> rec(expr) <:> "))"
     }
 
     rec(t).print
