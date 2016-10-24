@@ -84,7 +84,7 @@ class ASTConstructor {
         BooleanType().setPos(b)
       case Node('Type ::= _, List(Leaf(s@STRING()))) =>
         StringType().setPos(s)
-      case Node('Type ::= List(IDSENT), List(id)) =>
+      case Node('Type ::= List('Identifier), List(id)) =>
         val pid = constructId(id)
         ClassType(pid).setPos(pid)
     }
