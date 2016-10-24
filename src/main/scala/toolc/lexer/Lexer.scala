@@ -95,7 +95,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     case _ => false
   }
   
-  //that's a very lazy way to treat such case but fuck it
+  //that's a very lazy way to treat such case but so is life.
   private def thoseExceptions(c1: Char, c2: Char): Boolean = {
     var s = c1.toString() + c2.toString()
     s match{
@@ -197,7 +197,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     lazy val listOfDigits: List[Char] = List('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
     lazy val listOfAlphaDigits: List[Char] = List('0', '1', '2', '3', '4', '5', '6', '7', '8', 
          '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 
-         'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'/*MY GOD THIS FUCKER*/,'_')
+         'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z','_')
          
     /** Reads the next token from the stream. */
     //@scala.annotation.tailrec

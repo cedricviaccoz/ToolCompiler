@@ -40,9 +40,6 @@ class Evaluator(ctx: Context, prog: Program) {
       
     //not sure if declaring a "val" isn't considered a return value in the mad-world of Scala.
     case DoExpr(expr) => val void = evalExpr(expr) 
-    
-    //it would be great if i had a way to do this.
-    //case VarDecl(tpe, id) => ectx.declareVariable(id.value)
   }
   
 
