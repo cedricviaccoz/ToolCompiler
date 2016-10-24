@@ -98,9 +98,44 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       | LBRACKET() ~ 'Expression ~ RBRACKET() ~ EQSIGN() ~ 'Expression ~ SEMICOLON(), 
     'ElseOpt ::= ELSE() ~ 'Stmt 
       | epsilon(),
-    'Expression ::= 'OrExpr,
-    'OrExpr ::= 'AndExpr ~ 'OrExprOpt,
-    'OrExprOpt ::= OR() ~ 'OrExpr | epsilon(),
+    'Expression ::= 'AndExpr ~ 'OrExprOpt,
+    'OrExprOpt ::= OR() ~ 'Expression | epsilon(),
+    'AndExpr ::= 'EqExpr ~ 'AndExprOpt,
+    'AndExprOpt ::= AND() ~ 'AndExpr | epsilon(),
+    'EqExpr ::= 'LtExpr ~ 'EqExprOpt,
+    'EqExprOpt ::= EQUALS() ~ 'EqExpr | epsilon(),
+    'LtExpr ::= 'MinusExpr ~ 'LtExprOpt,
+    'LtExprOpt ::= LESSTHAN() ~ 'LtExpr | epsilon(),
+    'MinusExpr ::= 'PlusExpr ~ 'MinusExprOpt,
+    'MinusExprOpt ::= MINUS() ~ 'MinusExpr | epsilon(),
+    'PlusExpr ::= 'DivExpr ~ 'PlusExprOpt,
+    'PlusExprOpt ::= PLUS() ~ 'PlusExpr | epsilon(),
+    'DivExpr ::= 'MultExpr ~ 'DivExprOpt,
+    'DivExprOpt ::= DIV() ~ 'DivExpr | epsilon(),
+    'MultExpr ::= 'BangExpr ~ 'MultExprOpt,
+    'MultExprOpt ::= TIMES() ~ 'MultExpr | epsilon(),
+    'BangExpr ::= BANG() ~ 'ArrayExpr | 'ArrayExpr,
+    'ArrayExpr ::=  'DotExpr ~ 'ArrayExprOpt,
+    'ArrayExprOpt ::= LBRACKET() ~ 'Expression ~ RBRACKET() | epsilon(),
+    'DotExpr ::= 'NewExpr ~ 'DotExprOpt,
+    'DotExprOpt ::= DOT() ~ 'MethOrLength | epsilon(),
+    'MethOrLength ::= LENGTH() | 'Identifier ~ LPAREN() ~ 'Args ~ RPAREN() ~ 'DotExprOpt,
+    'NewExpr ::= NEW() ~ 'IntArrayOrId | 'termExpr,
+    'IntArrayOrId ::= INT() ~ LBRACKET() ~ 'Expression ~ RBRACKET() | 'Identifier ~ LPAREN() ~ RPAREN(),
+    'termExpr ::= LPAREN()~ 'Expression ~ RPAREN()
+      | TRUE() | FALSE() | 'Identifier | STRINGLITSENT | INTLITSENT | THIS(),
+    'Args ::= 'Expression ~ 'ExprList
+      | epsilon(),
+    'ExprList ::= COMMA() ~ 'Expression ~ 'ExprList
+      | epsilon(),
+    'Identifier ::= IDSENT
+  ))
+      
+  
+  
+  val toolOpPrecedenceLL1 = Grammar('Program, List[Rules[Token]](
+    'Expression ::= 'AndExpr ~ 'OrExprOpt,
+    'OrExprOpt ::= OR() ~ 'Expression | epsilon(),
     'AndExpr ::= 'EqExpr ~ 'AndExprOpt,
     'AndExprOpt ::= AND() ~ 'AndExpr | epsilon(),
     'EqExpr ::= 'LtExpr ~ 'EqExprOpt,
@@ -119,8 +154,8 @@ object Parser extends Pipeline[Iterator[Token], Program] {
     'ArrayExpr ::= LBRACKET() ~ 'ExpressionOpt ~ RBRACKET() | 'DotExpr,
     'ExpressionOpt ::= 'Expression | epsilon(),
     'DotExpr ::= 'NewExpr ~ 'DotExprOpt,
-    'DotExprOpt ::= DOT() ~ 'MethOrLength ~ 'DotExprOpt | epsilon(),
-    'MethOrLength ::= LENGTH() | 'Identifier ~ LPAREN() ~ 'Args ~ RPAREN(),
+    'DotExprOpt ::= DOT() ~ 'MethOrLength | epsilon(),
+    'MethOrLength ::= LENGTH() | 'Identifier ~ LPAREN() ~ 'Args ~ RPAREN() ~ 'DotExprOpt,
     'NewExpr ::= NEW() ~ 'IntArrayOrId | 'termExpr ~ 'brackBraceOpt,
     'IntArrayOrId ::= INT() ~ LBRACKET() ~ 'Expression ~ RBRACKET() | 'Identifier ~ LPAREN() ~ RPAREN(),
     'brackBraceOpt ::= LPAREN() ~ 'Expression ~ RPAREN() | LBRACKET() ~ 'Expression ~ RBRACKET() | epsilon(), // to treat E(E) and E[E]
@@ -130,41 +165,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       | epsilon(),
     'ExprList ::= COMMA() ~ 'Expression ~ 'ExprList
       | epsilon(),
-    'Identifier ::= IDSENT
-  ))
-      
-  
-  
-  val toolOpPrecedenceLL1 = Grammar('Program, List[Rules[Token]](
-    'Expression ::= 'OrExpr,
-    'OrExpr ::= 'AndExpr ~ 'OrExprOpt,
-    'OrExprOpt ::= OR() ~ 'OrExpr | epsilon(),
-    'AndExpr ::= 'EqExpr ~ 'AndExprOpt,
-    'AndExprOpt ::= AND() ~ 'AndExpr | epsilon(),
-    'EqExpr ::= 'LtExpr ~ 'EqExprOpt,
-    'EqExprOpt ::= EQSIGN() ~ 'EqExpr | epsilon(),
-    'LtExpr ::= 'MinusExpr ~ 'LtExprOpt,
-    'LtExprOpt ::= LESSTHAN() ~ 'LtExpr | epsilon(),
-    'MinusExpr ::= 'PlusExpr ~ 'MinusExprOpt,
-    'MinusExprOpt ::= MINUS() ~ 'MinusExpr | epsilon(),
-    'PlusExpr ::= 'DivExpr ~ 'PlusExprOpt,
-    'PlusExprOpt ::= PLUS() ~ 'PlusExpr | epsilon(),
-    'DivExpr ::= 'MultExpr ~ 'DivExprOpt,
-    'DivExprOpt ::= DIV() ~ 'DivExpr | epsilon(),
-    'MultExpr ::= 'BangExpr ~ 'MultExprOpt,
-    'MultExprOpt ::= TIMES() ~ 'MultExpr | epsilon(),
-    //now it is getting a little bit tricky, will need tests and careful thinking
-    'BangExpr ::= BANG() ~ 'ArrayExpr | 'ArrayExpr,
-    'ArrayExpr ::= LBRACKET() ~ 'ExpressionOpt ~ RBRACKET() | 'DotExpr,
-    'ExpressionOpt ::= 'Expression | epsilon(),
-    'DotExpr ::= 'NewExpr ~ 'DotExprOpt,
-    'DotExprOpt ::= DOT() ~ 'MethOrLength | epsilon(),
-    'MethOrLength ::= LENGTH() | 'Identifier,
-    'NewExpr ::= NEW() ~ 'IntArrayOrId | 'termExpr,
-    'IntArrayOrId ::= INT() ~ LBRACKET() ~ 'Expression ~ RBRACKET() | 'Identifier,
-    'termExpr ::= LPAREN()~ 'ExpressionOpt ~ RPAREN()
-      | TRUE() | FALSE() | IDSENT | STRINGLITSENT | INTLITSENT | THIS()
-      ))
+    'Identifier ::= IDSENT))
       
       
   val Oldll1Grammar = Grammar('Program, List[Rules[Token]](

@@ -92,9 +92,9 @@ class ASTConstructor {
 
   def constructStatement(ptree: NodeOrLeaf[Token]): StatTree = {
     ptree match {
-      case Node('Statement ::= IF() :: _, List(Leaf(iff), _, expr, _, matchif, eopt)) =>
+      case Node('Stmt ::= IF() :: _, List(Leaf(iff), _, expr, _, matchif, eopt)) =>
         If(constructExpr(expr), constructStatement(matchif), constructOption(eopt, constructStatement)).setPos(iff)
-      case Node('Statement ::= IF() :: _, List(Leaf(iff), _, expr, _, thenif, _, eif)) =>
+      case Node('Stmt ::= IF() :: _, List(Leaf(iff), _, expr, _, thenif, _, eif)) =>
         If(constructExpr(expr), constructStatement(thenif), Some(constructStatement(eif))).setPos(iff)
       case Node(_ ::= List('SimpleStat), List(simpstat)) =>
         constructStatement(simpstat)
