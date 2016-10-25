@@ -29,29 +29,11 @@ class ASTConstructorLL1 extends ASTConstructor {
   
   //override according to the redefinition of my newly constructed rules.
   override def constructExpr(ptree: NodeOrLeaf[Token]): ExprTree = ptree match{
-      case Node('Expression ::= List('AndExpr, 'OrExprOpt), List(and, oropt)) =>
-        val lhs = constructExpr(and)
-        leftAssociate(lhs.setPos(lhs), oropt)
-      
-      case Node('AndExpr ::= List('CmpExpr, 'AndExprOpt), List(cmp, andopt)) =>
-        val lhs = constructExpr(cmp)
-        leftAssociate(lhs.setPos(lhs), andopt)
-        
-      case Node('CmpExpr ::= List('AddSubExpr, 'CmpExprOpt), List(addsub, cmpopt)) =>
-        val lhs = constructExpr(addsub)
-        leftAssociate(lhs, cmpopt)
-        
-      case Node('AddSubExpr ::= List('FactorExpr, 'AddSubExprOpt), List(factor, asopt)) =>
-        val lhs = constructExpr(factor)
-        leftAssociate(lhs, asopt)
-        
-      case Node('FactorExpr ::= List('BangExpr, 'FactorExprOpt), List(bang, factopt)) =>
-        val lhs = constructExpr(bang)
-        leftAssociate(lhs, factopt)
+    
       
       case Node('BangExpr ::= List(BANG(),'ArrayExpr), List(Leaf(bt), e)) =>
         Not(constructExpr(e)).setPos(bt)
-        
+    
       case Node('BangExpr ::= List('ArrayExpr), List(e)) => constructExpr(e)
       
       case Node('ArrayExpr ::= _, List(dot, arrayopt))=>
@@ -77,6 +59,11 @@ class ASTConstructorLL1 extends ASTConstructor {
           case Node(_, List(_,_, expr,_)) => NewIntArray(constructExpr(expr)).setPos(nt)
           case Node(_, List(id,_,_)) => New(constructId(id)).setPos(nt)
         } 
+        
+      //treating all binary operations case
+      case Node(_, List(expr, expropt)) =>
+        val lhs = constructExpr(expr)
+        leftAssociate(lhs.setPos(lhs), expropt)
   }
   
   def handleDotOptRightRecursion(dotexpropt: NodeOrLeaf[Token], 
