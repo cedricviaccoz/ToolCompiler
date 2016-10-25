@@ -9,6 +9,7 @@ import grammarcomp.parsing._
 
 class ASTConstructorLL1 extends ASTConstructor {
 
+  //override since I made a new rule for Int and Int[]
   override def constructType(ptree: NodeOrLeaf[Token]): TypeTree = {
     ptree match {
       case Node('Type ::= INT() :: _, List(Leaf(i@INT()), arrayDecl)) =>
@@ -26,62 +27,27 @@ class ASTConstructorLL1 extends ASTConstructor {
     }
   }
   
+  //override according to the redefinition of my newly constructed rules.
   override def constructExpr(ptree: NodeOrLeaf[Token]): ExprTree = ptree match{
       case Node('Expression ::= List('AndExpr, 'OrExprOpt), List(and, oropt)) =>
         val lhs = constructExpr(and)
-        constructOption(oropt, constructExpr) match {
-          case None => lhs.setPos(lhs)
-          case Some(rhs) => leftAssociateOr(lhs, rhs)
-        }
+        leftAssociate(lhs.setPos(lhs), oropt)
       
-      case Node('AndExpr ::= List('EqExpr, 'AndExprOpt), List(eq, andopt)) =>
-        val lhs = constructExpr(eq)
-        constructOption(andopt, constructExpr) match {
-          case None => lhs.setPos(lhs)
-          case Some(rhs) => leftAssociateAnd(lhs, rhs)
-        }
+      case Node('AndExpr ::= List('CmpExpr, 'AndExprOpt), List(cmp, andopt)) =>
+        val lhs = constructExpr(cmp)
+        leftAssociate(lhs.setPos(lhs), andopt)
         
-      case Node('EqExpr ::= List('LtExpr, 'EqExprOpt), List(lt, eqopt)) =>
-        val lhs = constructExpr(lt)
-        constructOption(eqopt, constructExpr) match {
-          case None => lhs.setPos(lhs)
-          case Some(rhs) => leftAssociateEquals(lhs, rhs)
-        }
+      case Node('CmpExpr ::= List('AddSubExpr, 'CmpExprOpt), List(addsub, cmpopt)) =>
+        val lhs = constructExpr(addsub)
+        leftAssociate(lhs, cmpopt)
         
-      case Node('LtExpr ::= List('MinusExpr, 'LtExprOpt), List(minus, ltopt)) =>
-        val lhs = constructExpr(minus)
-        constructOption(ltopt, constructExpr) match {
-          case None => lhs.setPos(lhs)
-          case Some(rhs) => leftAssociateLessThan(lhs, rhs)
-        }
+      case Node('AddSubExpr ::= List('FactorExpr, 'AddSubExprOpt), List(factor, asopt)) =>
+        val lhs = constructExpr(factor)
+        leftAssociate(lhs, asopt)
         
-      case Node('MinusExpr ::= List('PlusExpr, 'MinusExprOpt), List(plus, minusopt)) =>
-        val lhs = constructExpr(plus)
-        constructOption(minusopt, constructExpr) match {
-          case None => lhs.setPos(lhs)
-          case Some(rhs) => leftAssociateMinus(lhs, rhs)
-        }
-        
-      case Node('PlusExpr ::= List('DivExpr, 'PlusExprOpt), List(div, plusopt)) =>
-        val lhs = constructExpr(div)
-        constructOption(plusopt, constructExpr) match {
-          case None => lhs.setPos(lhs)
-          case Some(rhs) => leftAssociatePlus(lhs, rhs)
-        }
-        
-      case Node('DivExpr ::= List('MultExpr, 'DivExprOpt), List(mult, divopt)) =>
-        val lhs = constructExpr(mult)
-        constructOption(divopt, constructExpr) match {
-          case None => lhs.setPos(lhs)
-          case Some(rhs) => leftAssociateDiv(lhs, rhs)
-        }
-      
-      case Node('MultExpr ::= List('BangExpr, 'MultExprOpt), List(bang, multopt)) =>
+      case Node('FactorExpr ::= List('BangExpr, 'FactorExprOpt), List(bang, factopt)) =>
         val lhs = constructExpr(bang)
-        constructOption(multopt, constructExpr) match {
-          case None => lhs.setPos(lhs)
-          case Some(rhs) => leftAssociateTimes(lhs, rhs)
-        }
+        leftAssociate(lhs, factopt)
       
       case Node('BangExpr ::= List(BANG(),'ArrayExpr), List(Leaf(bt), e)) =>
         Not(constructExpr(e)).setPos(bt)
@@ -90,7 +56,6 @@ class ASTConstructorLL1 extends ASTConstructor {
       
       case Node('ArrayExpr ::= _, List(dot, arrayopt))=>
         val dotExpr = constructExpr(dot)
-        //diff
         arrayopt match{
           case Node(_, List()) => dotExpr.setPos(dotExpr)
           case Node(_, List(Leaf(lb), idx,_ )) =>
@@ -112,14 +77,8 @@ class ASTConstructorLL1 extends ASTConstructor {
           case Node(_, List(_,_, expr,_)) => NewIntArray(constructExpr(expr)).setPos(nt)
           case Node(_, List(id,_,_)) => New(constructId(id)).setPos(nt)
         } 
-      
-      //this case accounts for all the (Op)ExprOpt of the grammar
-      case Node(_, List(_, expr)) => 
-        val pe = constructExpr(expr)
-        pe.setPos(pe)
   }
   
-  //need to do it left recursive style too.
   def handleDotOptRightRecursion(dotexpropt: NodeOrLeaf[Token], 
                                  obj: ExprTree,
                                  position: DOT): ExprTree = dotexpropt match{
@@ -147,48 +106,74 @@ class ASTConstructorLL1 extends ASTConstructor {
         Variable(pid).setPos(pid) 
   }
   
-  def leftAssociateOr(lhs: ExprTree, rhs: ExprTree): ExprTree = rhs match{
-          case Or(l, r) => leftAssociateOr(Or(lhs, l).setPos(lhs), r).setPos(Or(lhs, l))
-          case _  => Or(lhs, rhs).setPos(lhs)
-  }
   
-  def leftAssociateAnd(lhs: ExprTree, rhs: ExprTree): ExprTree = rhs match{
-          case And(l, r) => leftAssociateAnd(And(lhs, l).setPos(lhs), r).setPos(And(lhs, l))
-          case _  => And(lhs, rhs).setPos(lhs)
+  //take care of left associativity with all the binary operators of the grammar.
+  def leftAssociate(lhs : ExprTree, rule: NodeOrLeaf[Token]): ExprTree = rule match {
+    case Node('OrExprOpt ::= _, List(Leaf(ot@OR()), orexp )) =>
+      orexp match{
+        case Node('Expression::= _, List(andexp, orop)) =>
+          val l = constructExpr(andexp)
+          leftAssociate(Or(lhs, l).setPos(ot), orop)
+        case _ => Or(lhs, constructExpr(orexp)).setPos(ot)
+      }
+      
+    case Node('AndExprOpt ::= _, List(Leaf(at@AND()), andexp )) =>
+      andexp match{
+        case Node('AndExpr::= _, List(cmpexp, andop)) =>
+          val l = constructExpr(cmpexp)
+          leftAssociate(And(lhs, l).setPos(at), andop)
+        case _ => And(lhs, constructExpr(andexp)).setPos(at)
+      }
+      
+      
+    case Node('CmpExprOpt ::= _, List(Leaf(et@EQUALS()), cmpexp )) =>
+      cmpexp match{
+        case Node('CmpExpr::= _, List(asexp, cmpop)) =>
+          val l = constructExpr(asexp)
+          leftAssociate(Equals(lhs, l).setPos(et), cmpop)
+        case _ => Equals(lhs, constructExpr(cmpexp)).setPos(et)
+      }
+      
+    case Node('CmpExprOpt ::= _, List(Leaf(ltt@LESSTHAN()), cmpexp )) =>
+      cmpexp match{
+        case Node('CmpExpr::= _, List(asexp, cmpop)) =>
+          val l = constructExpr(asexp)
+          leftAssociate(LessThan(lhs, l).setPos(ltt), cmpop)
+        case _ => LessThan(lhs, constructExpr(cmpexp)).setPos(ltt)
+      }
+      
+    case Node('AddSubExprOpt ::= _, List(Leaf(mt@MINUS()), addsubexp )) =>
+      addsubexp match{
+        case Node('AddSubExpr::= _, List(factexp, addsubop)) =>
+          val l = constructExpr(factexp)
+          leftAssociate(Minus(lhs, l).setPos(mt), addsubop)
+        case _ => Minus(lhs, constructExpr(addsubexp)).setPos(mt)
+      }
+     
+    case Node('AddSubExprOpt ::= _, List(Leaf(pt@PLUS()), addsubexp )) =>
+      addsubexp match{
+        case Node('AddSubExpr::= _, List(factexp, addsubop)) =>
+          val l = constructExpr(factexp)
+          leftAssociate(Plus(lhs, l).setPos(pt), addsubop)
+        case _ => Plus(lhs, constructExpr(addsubexp)).setPos(pt)
+      }
+    
+    case Node('FactorExprOpt ::= _, List(Leaf(dt@DIV()), factexp )) =>
+      factexp match{
+        case Node('FactorExpr::= _, List(bangexp, factop)) =>
+          val l = constructExpr(bangexp)
+          leftAssociate(Div(lhs, l).setPos(dt), factop)
+        case _ => Div(lhs, constructExpr(factexp)).setPos(dt)
+      }
+      
+    case Node('FactorExprOpt ::= _, List(Leaf(tt@TIMES()), factexp )) =>
+      factexp match{
+        case Node('FactorExpr::= _, List(bangexp, factop)) =>
+          val l = constructExpr(bangexp)
+          leftAssociate(Times(lhs, l).setPos(tt), factop)
+        case _ => Times(lhs, constructExpr(factexp)).setPos(tt)
+      }
+      
+      case _ => lhs
   }
-  
-  def leftAssociateEquals(lhs: ExprTree, rhs: ExprTree): ExprTree = rhs match{
-          case Equals(l, r) => leftAssociateEquals(Equals(lhs, l).setPos(lhs), r).setPos(Equals(lhs, l))
-          case _  => Equals(lhs, rhs).setPos(lhs)
-  }
-  
-  def leftAssociateLessThan(lhs: ExprTree, rhs: ExprTree): ExprTree = rhs match{
-          case LessThan(l, r) => leftAssociateLessThan(LessThan(lhs, l).setPos(lhs), r).setPos(LessThan(lhs, l))
-          case _  => LessThan(lhs, rhs).setPos(lhs)
-  }
-  
-  def leftAssociateMinus(lhs: ExprTree, rhs: ExprTree): ExprTree = rhs match{
-          case Minus(l, r) => leftAssociateMinus(Minus(lhs, l).setPos(lhs), r).setPos(Minus(lhs, l))
-          case _  => Minus(lhs, rhs).setPos(lhs)
-  }
-
-  def leftAssociatePlus(lhs: ExprTree, rhs: ExprTree): ExprTree = rhs match{
-          case Plus(l, r) => leftAssociatePlus(Plus(lhs, l).setPos(lhs), r).setPos(Plus(lhs, l))
-          case _  => Plus(lhs, rhs).setPos(lhs)
-  }
-
-
-  def leftAssociateDiv(lhs: ExprTree, rhs: ExprTree): ExprTree = rhs match{
-          case Div(l, r) => leftAssociateDiv(Div(lhs, l).setPos(lhs), r).setPos(Div(lhs, l))
-          case _  => Div(lhs, rhs).setPos(lhs)
-  }
-
-  
-  def leftAssociateTimes(lhs: ExprTree, rhs: ExprTree): ExprTree = rhs match{
-          case Times(l, r) => leftAssociateTimes(Times(lhs, l).setPos(lhs), r).setPos(Times(lhs, l))
-          case _  => Times(lhs, rhs).setPos(lhs)
-  }
-  
-  
-  
 }

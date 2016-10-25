@@ -100,20 +100,20 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       | epsilon(),
     'Expression ::= 'AndExpr ~ 'OrExprOpt,
     'OrExprOpt ::= OR() ~ 'Expression | epsilon(),
-    'AndExpr ::= 'EqExpr ~ 'AndExprOpt,
+    'AndExpr ::= 'CmpExpr ~ 'AndExprOpt,
     'AndExprOpt ::= AND() ~ 'AndExpr | epsilon(),
-    'EqExpr ::= 'LtExpr ~ 'EqExprOpt,
-    'EqExprOpt ::= EQUALS() ~ 'EqExpr | epsilon(),
-    'LtExpr ::= 'MinusExpr ~ 'LtExprOpt,
-    'LtExprOpt ::= LESSTHAN() ~ 'LtExpr | epsilon(),
-    'MinusExpr ::= 'PlusExpr ~ 'MinusExprOpt,
-    'MinusExprOpt ::= MINUS() ~ 'MinusExpr | epsilon(),
-    'PlusExpr ::= 'DivExpr ~ 'PlusExprOpt,
-    'PlusExprOpt ::= PLUS() ~ 'PlusExpr | epsilon(),
-    'DivExpr ::= 'MultExpr ~ 'DivExprOpt,
-    'DivExprOpt ::= DIV() ~ 'DivExpr | epsilon(),
-    'MultExpr ::= 'BangExpr ~ 'MultExprOpt,
-    'MultExprOpt ::= TIMES() ~ 'MultExpr | epsilon(),
+    'CmpExpr ::= 'AddSubExpr ~ 'CmpExprOpt,
+    'CmpExprOpt ::= EQUALS() ~ 'CmpExpr 
+      | LESSTHAN() ~ 'CmpExpr  
+      | epsilon(),
+    'AddSubExpr ::= 'FactorExpr ~ 'AddSubExprOpt,
+    'AddSubExprOpt ::= MINUS() ~ 'AddSubExpr 
+      |  PLUS() ~ 'AddSubExpr 
+      | epsilon(),
+    'FactorExpr ::= 'BangExpr ~ 'FactorExprOpt,
+    'FactorExprOpt ::= DIV() ~ 'FactorExpr 
+      | TIMES() ~ 'FactorExpr 
+      | epsilon(),
     'BangExpr ::= BANG() ~ 'ArrayExpr | 'ArrayExpr,
     'ArrayExpr ::=  'DotExpr ~ 'ArrayExprOpt,
     'ArrayExprOpt ::= LBRACKET() ~ 'Expression ~ RBRACKET() | epsilon(),
@@ -130,108 +130,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       | epsilon(),
     'Identifier ::= IDSENT
   ))
-      
   
-  
-  val toolOpPrecedenceLL1 = Grammar('Program, List[Rules[Token]](
-    'Expression ::= 'AndExpr ~ 'OrExprOpt,
-    'OrExprOpt ::= OR() ~ 'Expression | epsilon(),
-    'AndExpr ::= 'EqExpr ~ 'AndExprOpt,
-    'AndExprOpt ::= AND() ~ 'AndExpr | epsilon(),
-    'EqExpr ::= 'LtExpr ~ 'EqExprOpt,
-    'EqExprOpt ::= EQUALS() ~ 'EqExpr | epsilon(),
-    'LtExpr ::= 'MinusExpr ~ 'LtExprOpt,
-    'LtExprOpt ::= LESSTHAN() ~ 'LtExpr | epsilon(),
-    'MinusExpr ::= 'PlusExpr ~ 'MinusExprOpt,
-    'MinusExprOpt ::= MINUS() ~ 'MinusExpr | epsilon(),
-    'PlusExpr ::= 'DivExpr ~ 'PlusExprOpt,
-    'PlusExprOpt ::= PLUS() ~ 'PlusExpr | epsilon(),
-    'DivExpr ::= 'MultExpr ~ 'DivExprOpt,
-    'DivExprOpt ::= DIV() ~ 'DivExpr | epsilon(),
-    'MultExpr ::= 'BangExpr ~ 'MultExprOpt,
-    'MultExprOpt ::= TIMES() ~ 'MultExpr | epsilon(),
-    'BangExpr ::= BANG() ~ 'ArrayExpr | 'ArrayExpr,
-    'ArrayExpr ::= LBRACKET() ~ 'ExpressionOpt ~ RBRACKET() | 'DotExpr,
-    'ExpressionOpt ::= 'Expression | epsilon(),
-    'DotExpr ::= 'NewExpr ~ 'DotExprOpt,
-    'DotExprOpt ::= DOT() ~ 'MethOrLength | epsilon(),
-    'MethOrLength ::= LENGTH() | 'Identifier ~ LPAREN() ~ 'Args ~ RPAREN() ~ 'DotExprOpt,
-    'NewExpr ::= NEW() ~ 'IntArrayOrId | 'termExpr ~ 'brackBraceOpt,
-    'IntArrayOrId ::= INT() ~ LBRACKET() ~ 'Expression ~ RBRACKET() | 'Identifier ~ LPAREN() ~ RPAREN(),
-    'brackBraceOpt ::= LPAREN() ~ 'Expression ~ RPAREN() | LBRACKET() ~ 'Expression ~ RBRACKET() | epsilon(), // to treat E(E) and E[E]
-    'termExpr ::= LPAREN()~ 'ExpressionOpt ~ RPAREN()
-      | TRUE() | FALSE() | 'Identifier | STRINGLITSENT | INTLITSENT | THIS(),
-    'Args ::= 'Expression ~ 'ExprList
-      | epsilon(),
-    'ExprList ::= COMMA() ~ 'Expression ~ 'ExprList
-      | epsilon(),
-    'Identifier ::= IDSENT))
-      
-      
-  val Oldll1Grammar = Grammar('Program, List[Rules[Token]](
-    'Program ::= 'MainObject ~ 'ClassDecls ~ EOF(),
-    'MainObject ::= PROGRAM() ~ 'Identifier ~ LBRACE() ~ 'Stmts ~ RBRACE(),
-    'Stmts ::= 'Stmt ~ 'Stmts 
-      | epsilon(),
-    'ClassDecls ::= 'ClassDeclaration ~ 'ClassDecls 
-      | epsilon(),
-    'ClassDeclaration ::= CLASS() ~ 'Identifier ~ 'OptExtends ~ 'ClassBody,
-    'OptExtends ::= EXTENDS() ~ 'Identifier 
-      | epsilon(),
-    'ClassBody ::= LBRACE() ~ 'VarDecs ~ 'MethodDecs ~ RBRACE(),
-    'VarDecs ::= 'VarDeclaration ~ 'VarDecs 
-      | epsilon(),
-    'VarDeclaration ::= VAR() ~ 'Param ~ SEMICOLON(),
-    'MethodDecs ::= 'MethodDeclaration ~ 'MethodDecs 
-      | epsilon(),
-    'MethodDeclaration ::= DEF() ~ 'Identifier ~ LPAREN() ~ 'Params ~ RPAREN() ~ COLON() ~ 'Type ~ EQSIGN() ~ LBRACE() ~ 'VarDecs ~ 'Stmts ~ RETURN() ~ 'Expression ~ SEMICOLON() ~ RBRACE(),
-    'Params ::= 'Param ~ 'ParamList 
-      | epsilon(),
-    'ParamList ::= COMMA() ~ 'Param ~ 'ParamList
-      | epsilon(),
-    'Param ::= 'Identifier ~ COLON() ~ 'Type,
-    'Type ::= INT() ~ 'ArrayDeclaration
-      | BOOLEAN()  
-      | STRING() 
-      | 'Identifier,
-    'ArrayDeclaration ::= LBRACKET() ~ RBRACKET()
-      | epsilon(),
-    'Stmt ::= IF() ~ LPAREN() ~ 'Expression ~ RPAREN() ~ 'MatchedIf ~ 'ElseOpt
-      | 'SimpleStat,
-    'MatchedIf ::= IF() ~ LPAREN() ~ 'Expression ~ RPAREN() ~ 'MatchedIf ~ ELSE() ~ 'MatchedIf
-      | 'SimpleStat,
-    'SimpleStat ::= LBRACE() ~ 'Stmt  ~ RBRACE()
-      | WHILE() ~ LPAREN() ~ 'Expression ~ RPAREN() ~ 'MatchedIf
-      | PRINTLN() ~ LPAREN() ~ 'Expression ~ RPAREN() ~ SEMICOLON()
-      | 'Identifier ~ 'IdStat
-      | DO() ~ LPAREN() ~ 'Expression ~ RPAREN() ~ SEMICOLON(),
-    'IdStat ::= EQSIGN() ~ 'Expression ~ SEMICOLON()
-      | LBRACKET() ~ 'Expression ~ RBRACKET() ~ EQSIGN() ~ 'Expression ~ SEMICOLON(), 
-    'ElseOpt ::= ELSE() ~ 'Stmt 
-      | epsilon(),
-    'Expression ::= INTLITSENT ~ 'ExpressionAlt
-      | STRINGLITSENT ~ 'ExpressionAlt
-      | TRUE() ~ 'ExpressionAlt
-      | FALSE() ~ 'ExpressionAlt
-      | 'Identifier ~ 'ExpressionAlt
-      | THIS() ~ 'ExpressionAlt
-      | NEW() ~ 'newExpr ~ 'ExpressionAlt
-      | BANG() ~ 'Expression ~ 'ExpressionAlt
-      | LPAREN() ~ 'Expression ~ RPAREN() ~ 'ExpressionAlt,
-    'ExpressionAlt ::= 'Op ~ 'Expression ~ 'ExpressionAlt
-      | LBRACKET() ~ 'Expression ~ RBRACKET() ~ 'ExpressionAlt
-      | DOT() ~ LENGTH() ~ 'ExpressionAlt
-      | DOT() ~ 'Identifier ~ LPAREN() ~ 'Args ~ RPAREN() ~ 'ExpressionAlt 
-      | epsilon(),
-    'newExpr ::= INT() ~ LBRACKET() ~ 'Expression ~ RBRACKET()
-      | 'Identifier ~ LPAREN() ~ RPAREN(),
-    'Args ::= 'Expression ~ 'ExprList
-      | epsilon(),
-    'ExprList ::= COMMA() ~ 'Expression ~ 'ExprList
-      | epsilon(),
-    'Op ::= AND() | OR() | EQUALS() | LESSTHAN() | PLUS() | MINUS() | TIMES() | DIV(),
-    'Identifier ::= IDSENT
-  ))
   def run(ctx: Context)(tokens: Iterator[Token]): Program = {
     import ctx.reporter._
     implicit val gc = new GlobalContext()
