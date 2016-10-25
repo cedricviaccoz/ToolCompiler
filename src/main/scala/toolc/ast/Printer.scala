@@ -51,16 +51,24 @@ object Printer {
 
   implicit def stringToDoc(s: String): Raw = Raw(s)
 
-  def apply(t: Tree) = {
+  def apply(t: Tree, printUniqueIDs: Boolean = false) = {
     def binOp(e1: ExprTree, op: String, e2: ExprTree) = "(" <:> rec(e1) <:> " " + op + " " <:> rec(e2) <:> ")"
 
     def rec(t: Tree): Document = t match {
-      case Identifier(value) => value
+      case id@Identifier(value) =>
+        val tail = {
+          if (!printUniqueIDs) ""
+          else id.optSymbol match {
+            case None => "#??"
+            case Some(sym) => "#" + sym.id
+          }
+        }
+        value + tail
       case Program(main, classes) =>
         Stacked(rec(main) :: (classes map rec))
       case MainObject(id, stats) =>
         Stacked(
-          s"program $id {",
+          "program " <:> rec(id) <:> " {",
           Indented(Stacked(stats map rec)),
           "}",
           ""

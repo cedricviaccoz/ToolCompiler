@@ -3,6 +3,7 @@ package toolc
 import utils._
 import lexer._
 import ast._
+import analyzer._
 import java.io.File
 
 object Main {
@@ -21,10 +22,10 @@ object Main {
 
   def main(args: Array[String]) {
     val ctx = processOptions(args)
-    val pipeline = Lexer andThen Parser
+    val pipeline = Lexer andThen Parser andThen NameAnalysis
     val ast = pipeline.run(ctx)(ctx.files.head)
     ctx.reporter.terminateIfErrors()
-    println(Printer(ast))
+    println(Printer(ast, true))
   }
 
 }
