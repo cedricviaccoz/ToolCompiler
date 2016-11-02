@@ -84,7 +84,7 @@ object Printer {
           ""
         )
       case VarDecl(tpe, id) =>
-        s"var $id: " <:> rec(tpe) <:> ";"
+        s"var " <:> rec(id) <:> ": " <:> rec(tpe) <:> ";"
       case MethodDecl(id, args, retType, vars, stats, retExpr) =>
         Stacked(
           "def " <:> rec(id) <:> "(" <:> Lined(args map rec, ", ") <:> "): " <:> rec(retType) <:> " = {",
