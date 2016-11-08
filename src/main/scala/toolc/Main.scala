@@ -22,10 +22,9 @@ object Main {
 
   def main(args: Array[String]) {
     val ctx = processOptions(args)
-    val pipeline = Lexer andThen Parser andThen NameAnalysis
+    val pipeline = Lexer andThen Parser andThen NameAnalysis andThen TypeChecking
     val ast = pipeline.run(ctx)(ctx.files.head)
     ctx.reporter.terminateIfErrors()
-    println(Printer(ast, true))
   }
 
 }
