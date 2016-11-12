@@ -31,7 +31,7 @@ class ASTConstructorLL1 extends ASTConstructor {
   override def constructExpr(ptree: NodeOrLeaf[Token]): ExprTree = ptree match{
     
       
-      case Node('BangExpr ::= List(BANG(),'ArrayExpr), List(Leaf(bt), e)) =>
+      case Node('BangExpr ::= List(BANG(),'BangExpr), List(Leaf(bt), e)) =>
         Not(constructExpr(e)).setPos(bt)
     
       case Node('BangExpr ::= List('ArrayExpr), List(e)) => constructExpr(e)

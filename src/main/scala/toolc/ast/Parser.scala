@@ -114,7 +114,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
     'FactorExprOpt ::= DIV() ~ 'FactorExpr 
       | TIMES() ~ 'FactorExpr 
       | epsilon(),
-    'BangExpr ::= BANG() ~ 'ArrayExpr | 'ArrayExpr,
+    'BangExpr ::= BANG() ~ 'BangExpr | 'ArrayExpr,
     'ArrayExpr ::=  'DotExpr ~ 'ArrayExprOpt,
     'ArrayExprOpt ::= LBRACKET() ~ 'Expression ~ RBRACKET() | epsilon(),
     'DotExpr ::= 'NewExpr ~ 'DotExprOpt,
