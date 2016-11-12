@@ -3,6 +3,7 @@ package toolc
 import utils._
 import lexer._
 import ast._
+import analyzer._
 import java.io.File
 
 object Main {
@@ -20,25 +21,10 @@ object Main {
 
   def main(args: Array[String]) {
     val ctx = processOptions(args)
-    val pipeline = Lexer andThen Parser
+    val pipeline = Lexer andThen Parser andThen NameAnalysis
     val ast = pipeline.run(ctx)(ctx.files.head)
     ctx.reporter.terminateIfErrors()
-    println(Printer(ast))
-    
-    /*val result = grammarcomp.grammar.GrammarUtils.nullableFirstFollow(Parser.ll1Grammar)
-    println("Nullables :")
-    for( n <- result._1){
-      println("   "+n)
-    }
-    println("Firsts :")
-    for( n <- result._2){
-      println("   "+n._1+ " ==> "+n._2)
-    }
-    println("Follows :")
-    for( n <- result._3){
-      
-      println("   "+n._1 + " ==> "+n._2)
-    }*/
+    println(Printer(ast, true))
   }
 
 }

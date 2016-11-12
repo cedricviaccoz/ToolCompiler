@@ -2,13 +2,14 @@ package toolc
 package ast
 
 import utils._
+import analyzer.Symbols._
 
 object Trees {
   sealed trait Tree extends Positioned
 
   // Identifiers represent names in Tool. When a unique symbol gets attached to them,
   // they become unique
-  case class Identifier(value: String) extends Tree {
+  case class Identifier(value: String) extends Tree with Symbolic[Symbol] {
     override def toString = value
   }
 
@@ -17,20 +18,20 @@ object Trees {
   case class Program(main: MainObject, classes: List[ClassDecl])
     extends DefTree
   case class MainObject(id: Identifier, stats: List[StatTree])
-    extends DefTree
+    extends DefTree with Symbolic[MainSymbol]
   case class ClassDecl(id: Identifier, parent: Option[Identifier], vars: List[VarDecl], methods: List[MethodDecl])
-    extends DefTree
+    extends DefTree with Symbolic[ClassSymbol]
   case class VarDecl(tpe: TypeTree, id: Identifier)
-    extends DefTree
+    extends DefTree with Symbolic[VariableSymbol]
   case class MethodDecl(id: Identifier,
                         args: List[Formal],
                         retType: TypeTree,
                         vars: List[VarDecl],
                         stats: List[StatTree],
                         retExpr: ExprTree)
-    extends DefTree
+    extends DefTree with Symbolic[MethodSymbol]
   case class Formal(tpe: TypeTree, id: Identifier)
-    extends DefTree
+    extends DefTree with Symbolic[VariableSymbol]
 
   // Types
   sealed trait TypeTree extends Tree 
@@ -68,7 +69,7 @@ object Trees {
   case class Variable(id: Identifier) extends ExprTree
   case class True() extends ExprTree
   case class False() extends ExprTree
-  case class This() extends ExprTree
+  case class This() extends ExprTree with Symbolic[ClassSymbol]
   case class NewIntArray(size: ExprTree) extends ExprTree
   case class New(tpe: Identifier) extends ExprTree
   case class Not(expr: ExprTree) extends ExprTree
