@@ -212,9 +212,16 @@ object NameAnalysis extends Pipeline[Program, Program] {
       val MethodSym = cs.lookupMethod(meth.id.value).get
       meth.setSymbol(MethodSym)
       meth.id.setSymbol(MethodSym)
-      meth.args foreach (p => setISymbol(p.id)(Some(MethodSym)))
-      meth.vars foreach (p => setISymbol(p.id)(Some(MethodSym)))
+      meth.args foreach (p => {
+        setISymbol(p.id)(Some(MethodSym))
+        setTypeSymbol(p.tpe, gs)
+      })
+      meth.vars foreach (p => {
+        setISymbol(p.id)(Some(MethodSym))
+        setTypeSymbol(p.tpe, gs) 
+      })
       meth.stats foreach (s => setSSymbols(s)(gs, Some(MethodSym)))
+      setTypeSymbol(meth.retType, gs)
       setESymbols(meth.retExpr)(gs, Some(MethodSym))
     }
 
