@@ -106,12 +106,13 @@ object NameAnalysis extends Pipeline[Program, Program] {
                   val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
                   methSym.overridden = lookupMeth
 
-                  initMethSymbol(methSym, method)
-                  if (methSym.argList.size == lookupMeth.get.argList.size) {
+                  if (method.args.size == lookupMeth.get.argList.size) {
+                    
+                    initMethSymbol(methSym, method)
                     correspClassSym.methods += ((method.id.value, methSym))
                   } else {
                     //the overriden method doesn't have the same number of parameters as its parent class, need to report the error 
-                    error(s"Overrident method at ${methSym.position} don't have the same number of parameter as the method it overrides at ${lookupMeth.get.position}")
+                    error(s"Overriden method at ${methSym.position} don't have the same number of parameter as the method it overrides at ${lookupMeth.get.position}")
                   }
 
                 }
@@ -200,10 +201,8 @@ object NameAnalysis extends Pipeline[Program, Program] {
       val classSym = gs.lookupClass(klass.id.value).get
       klass.id.setSymbol(classSym)
       for (varDecl <- klass.vars) {
-        /*
-         * old Version was : setTypeSymbol(varDecl.tpe, gs)
-         */
-        setTypeSymbol(varDecl, classSym, gs)
+        setTypeSymbol(varDecl.tpe, gs)
+        setClassVarSymbol(varDecl, classSym, gs)
       }
 
       klass.methods.foreach(setMSymbols(_, gs, classSym))
@@ -289,12 +288,16 @@ object NameAnalysis extends Pipeline[Program, Program] {
       case _                   =>
     }
 
-    /*
-     * Old version was :
-     * def setTypeSymbol(tpe: TypeTree, gs: GlobalScope): Unit = {???}
-     */
+    def setTypeSymbol(tpe: TypeTree, gs: GlobalScope): Unit = tpe match{
+      case ClassType(id) =>
+        val classTypeSymb = gs.lookupClass(id.value)
+        if(classTypeSymb isDefined) id.setSymbol(classTypeSymb get) 
+        else error("Undeclared class type at "+ id.position)
+      case _ =>
+      
+    }
     
-    def setTypeSymbol(tpe: VarDecl, cs: ClassSymbol, gs: GlobalScope): Unit = {
+    def setClassVarSymbol(tpe: VarDecl, cs: ClassSymbol, gs: GlobalScope): Unit = {
       val varSym = cs.lookupVar(tpe.id.value)
       tpe.id.setSymbol(varSym get)
     }
