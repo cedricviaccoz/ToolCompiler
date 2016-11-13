@@ -25,9 +25,11 @@ object NameAnalysis extends Pipeline[Program, Program] {
           error(s"Class ${c.id.value} is already defined at position ${global.classes.get(className).get.position}")
         } else if (c.id == "Object") {
           error(s"the class at position ${c.position} cannot bear the name 'Object' !")
-
         } else {
-          global.classes += ((className, new ClassSymbol(className).setPos(c)))
+          val clSymb = new ClassSymbol(className).setPos(c)
+          global.classes += ((className, clSymb))
+          c.setSymbol(clSymb)
+          
         }
       }
 
@@ -65,6 +67,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
         }
 
       }
+
 
       // We now know that every class is unique and the inheritance graph is
       // correct. We proceed to check the contents of these classes.
@@ -149,6 +152,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
             error(s"method's arguments are duplicated, first occurence found at ${methSym.params(args.id.value).position}")
           } else {
             val argSymbol = new VariableSymbol(args.id.value).setPos(args)
+            args.setSymbol(argSymbol)
             methSym.params += ((args.id.value, argSymbol))
             methSym.argList.::(argSymbol)
           }
@@ -161,7 +165,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
         if (currClass.members.contains(varName)) {
           error(s"variable at ${variable.position} is already defined at ${currClass.members.get(varName).get.position}")
         } else {
-          currClass.members += ((varName, new VariableSymbol(varName).setPos(variable)))
+          val membSymb = new VariableSymbol(varName).setPos(variable)
+          variable.setSymbol(membSymb)
+          currClass.members += ((varName, membSymb))
         }
       }
 
@@ -173,7 +179,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
           } else if (currMethod.params.contains(member.id.value)) {
             error(s"method variable at ${member.position} try to override method parameter at ${currMethod.params(member.id.value).position}")
           } else {
-            currMethod.members += ((member.id.value, new VariableSymbol(member.id.value).setPos(member)))
+            val memSymb = new VariableSymbol(member.id.value).setPos(member)
+            member.setSymbol(memSymb)
+            currMethod.members += ((member.id.value, memSymb))
           }
         }
       }
@@ -190,6 +198,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
     def setCSymbols(klass: ClassDecl, gs: GlobalScope): Unit = {
       val classSym = gs.lookupClass(klass.id.value).get
+      klass.id.setSymbol(classSym)
       for (varDecl <- klass.vars) {
         /*
          * old Version was : setTypeSymbol(varDecl.tpe, gs)
@@ -206,6 +215,8 @@ object NameAnalysis extends Pipeline[Program, Program] {
       meth.id.setSymbol(MethodSym)
       meth.args foreach (p => setISymbol(p.id)(Some(MethodSym)))
       meth.vars foreach (p => setISymbol(p.id)(Some(MethodSym)))
+      meth.stats foreach (s => setSSymbols(s)(gs, Some(MethodSym)))
+      setESymbols(meth.retExpr)(gs, Some(MethodSym))
     }
 
     def setSSymbols(stat: StatTree)(implicit gs: GlobalScope, ms: Option[MethodSymbol]): Unit = stat match {
@@ -263,7 +274,8 @@ object NameAnalysis extends Pipeline[Program, Program] {
         setESymbols(arr); setESymbols(index)
       case ArrayLength(arr: ExprTree) => setESymbols(arr)
       case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
-        setESymbols(obj); args foreach (setESymbols(_))
+        setESymbols(obj)
+        args foreach (setESymbols(_))
       case Variable(id: Identifier) => setISymbol(id)
       case th: This =>
         if (ms isDefined) th.setSymbol(ms.get.classSymbol)
@@ -284,6 +296,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
     
     def setTypeSymbol(tpe: VarDecl, cs: ClassSymbol, gs: GlobalScope): Unit = {
       val varSym = cs.lookupVar(tpe.id.value)
+      tpe.id.setSymbol(varSym get)
     }
 
     val gs = collectSymbols(prog)
