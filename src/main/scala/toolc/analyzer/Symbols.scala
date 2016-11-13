@@ -51,6 +51,8 @@ object Symbols {
     var parent: Option[ClassSymbol] = None
     var methods = Map[String,MethodSymbol]()
     var members = Map[String,VariableSymbol]()
+    //to keep track if it has already been visited by the algorithm "collectInClass"
+    private var visited = false
 
     def lookupMethod(n: String): Option[MethodSymbol] = {
       methods.get(n) orElse parent.flatMap(_.lookupMethod(n))
@@ -59,6 +61,9 @@ object Symbols {
     def lookupVar(n: String): Option[VariableSymbol] = {
       members.get(n) orElse parent.flatMap(_.lookupVar(n))
     }
+    
+    def setVisited = (visited = true)
+    def hasBeenVisited = visited
   }
 
   class MethodSymbol(val name: String, val classSymbol: ClassSymbol) extends Symbol {
