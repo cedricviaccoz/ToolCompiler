@@ -106,7 +106,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
                   val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
                   methSym.overridden = lookupMeth
 
-                  if (method.args.size == lookupMeth.get.argList.size) {
+                  if (method.args.size == lookupMeth.get.params.size) {
                     
                     initMethSymbol(methSym, method)
                     correspClassSym.methods += ((method.id.value, methSym))
