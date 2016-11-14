@@ -11,10 +11,11 @@ object NameAnalysis extends Pipeline[Program, Program] {
     import ctx.reporter._
 
     def collectSymbols(prog: Program): GlobalScope = {
-
+    
       val global = new GlobalScope
-
+      
       val mcSym = new MainSymbol(prog.main.id.value)
+      if(prog.main.id.value equals "Object") error(s"Main Object cannot bear the name 'Object' !")
       global.mainClass = mcSym
       prog.main.setSymbol(mcSym)
       prog.main.id.setSymbol(mcSym)
@@ -23,14 +24,16 @@ object NameAnalysis extends Pipeline[Program, Program] {
         val className = c.id.value
         if (global.classes.contains(className)) {
           error(s"Class ${c.id.value} is already defined at position ${global.classes.get(className).get.position}")
-        } else if (c.id == "Object") {
-          error(s"the class at position ${c.position} cannot bear the name 'Object' !")
-        } else {
+        } else if (c.id.value == "Object") {
+          error(s"the class at position ${c.position} cannot bear the name 'Object' .")
+        } else if (c.id.value == prog.main.id.value) {
+          error(s"the class at position ${c.position} cannot bear the same name as the main object.")
+        }
           val clSymb = new ClassSymbol(className).setPos(c)
           global.classes += ((className, clSymb))
           c.setSymbol(clSymb)
-          
-        }
+
+        
       }
 
       // Set parent Symbols
@@ -67,7 +70,6 @@ object NameAnalysis extends Pipeline[Program, Program] {
         }
 
       }
-
 
       // We now know that every class is unique and the inheritance graph is
       // correct. We proceed to check the contents of these classes.
@@ -107,7 +109,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
                   methSym.overridden = lookupMeth
 
                   if (method.args.size == lookupMeth.get.params.size) {
-                    
+
                     initMethSymbol(methSym, method)
                     correspClassSym.methods += ((method.id.value, methSym))
                   } else {
@@ -218,7 +220,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
       })
       meth.vars foreach (p => {
         setISymbol(p.id)(Some(MethodSym))
-        setTypeSymbol(p.tpe, gs) 
+        setTypeSymbol(p.tpe, gs)
       })
       meth.stats foreach (s => setSSymbols(s)(gs, Some(MethodSym)))
       setTypeSymbol(meth.retType, gs)
@@ -295,15 +297,15 @@ object NameAnalysis extends Pipeline[Program, Program] {
       case _                   =>
     }
 
-    def setTypeSymbol(tpe: TypeTree, gs: GlobalScope): Unit = tpe match{
+    def setTypeSymbol(tpe: TypeTree, gs: GlobalScope): Unit = tpe match {
       case ClassType(id) =>
         val classTypeSymb = gs.lookupClass(id.value)
-        if(classTypeSymb isDefined) id.setSymbol(classTypeSymb get) 
-        else error("Undeclared class type at "+ id.position)
+        if (classTypeSymb isDefined) id.setSymbol(classTypeSymb get)
+        else error("Undeclared class type at " + id.position)
       case _ =>
-      
+
     }
-    
+
     def setClassVarSymbol(tpe: VarDecl, cs: ClassSymbol, gs: GlobalScope): Unit = {
       val varSym = cs.lookupVar(tpe.id.value)
       tpe.id.setSymbol(varSym get)
