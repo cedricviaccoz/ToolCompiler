@@ -3,13 +3,27 @@ package ast
 
 import utils._
 import analyzer.Symbols._
+import analyzer.Types._
 
 object Trees {
   sealed trait Tree extends Positioned
 
   // Identifiers represent names in Tool. When a unique symbol gets attached to them,
   // they become unique
-  case class Identifier(value: String) extends Tree with Symbolic[Symbol] {
+  case class Identifier(value: String) extends Tree with Symbolic[Symbol] with Typed {
+    override def getType: Type = getSymbol match {
+      case cs: ClassSymbol =>
+        TClass(cs)
+
+      case ms: MethodSymbol =>
+        sys.error("Requesting type of a method identifier.")
+
+      case ms: MainSymbol =>
+        sys.error("Requesting type of main object")
+
+      case vs: VariableSymbol =>
+        vs.getType
+    }
     override def toString = value
   }
 
@@ -34,12 +48,22 @@ object Trees {
     extends DefTree with Symbolic[VariableSymbol]
 
   // Types
-  sealed trait TypeTree extends Tree 
-  case class IntArrayType() extends TypeTree 
-  case class IntType() extends TypeTree
-  case class BooleanType() extends TypeTree
-  case class StringType() extends TypeTree
-  case class ClassType(id: Identifier) extends TypeTree
+  sealed trait TypeTree extends Tree with Typed
+  case class IntArrayType() extends TypeTree {
+    override def getType = TIntArray
+  }
+  case class IntType() extends TypeTree {
+    override def getType = TInt
+  }
+  case class BooleanType() extends TypeTree {
+    override def getType = TBoolean
+  }
+  case class StringType() extends TypeTree {
+    override def getType = TString
+  }
+  case class ClassType(id: Identifier) extends TypeTree {
+    override def getType = id.getType
+  }
 
   // Statements
   sealed trait StatTree extends Tree
@@ -52,25 +76,77 @@ object Trees {
   case class DoExpr(e: ExprTree) extends StatTree
 
   // Expressions
-  sealed trait ExprTree extends Tree
-  case class And(lhs: ExprTree, rhs: ExprTree) extends ExprTree
-  case class Or(lhs: ExprTree, rhs: ExprTree) extends ExprTree
-  case class Plus(lhs: ExprTree, rhs: ExprTree) extends ExprTree
-  case class Minus(lhs: ExprTree, rhs: ExprTree) extends ExprTree
-  case class Times(lhs: ExprTree, rhs: ExprTree) extends ExprTree
-  case class Div(lhs: ExprTree, rhs: ExprTree) extends ExprTree
-  case class LessThan(lhs: ExprTree, rhs: ExprTree) extends ExprTree
-  case class Equals(lhs: ExprTree, rhs: ExprTree) extends ExprTree
-  case class ArrayRead(arr: ExprTree, index: ExprTree) extends ExprTree
-  case class ArrayLength(arr: ExprTree) extends ExprTree
-  case class MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) extends ExprTree
-  case class IntLit(value: Int) extends ExprTree
-  case class StringLit(value: String) extends ExprTree
-  case class Variable(id: Identifier) extends ExprTree
-  case class True() extends ExprTree
-  case class False() extends ExprTree
-  case class This() extends ExprTree with Symbolic[ClassSymbol]
-  case class NewIntArray(size: ExprTree) extends ExprTree
-  case class New(tpe: Identifier) extends ExprTree
-  case class Not(expr: ExprTree) extends ExprTree
+  sealed trait ExprTree extends Tree with Typed
+
+  // Boolean operators
+  case class And(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
+    val getType = TBoolean
+  }
+  case class Or(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
+    val getType = TBoolean
+  }
+  case class Not(expr: ExprTree) extends ExprTree {
+    val getType = TBoolean
+  }
+  // Arithmetic operators (Plus works on any combination of Int/String)
+  case class Plus(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
+    def getType = ??? // TODO
+  }
+  case class Minus(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
+    val getType = TInt
+  }
+  case class Times(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
+    val getType = TInt
+  }
+  case class Div(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
+    val getType = TInt
+  }
+  case class LessThan(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
+    val getType = TBoolean
+  }
+  // Equality
+  case class Equals(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
+    val getType = TBoolean
+  }
+  // Array expressions
+  case class ArrayRead(arr: ExprTree, index: ExprTree) extends ExprTree {
+    val getType = TInt
+  }
+  case class ArrayLength(arr: ExprTree) extends ExprTree {
+    val getType = TInt
+  }
+  case class NewIntArray(size: ExprTree) extends ExprTree {
+    val getType = TIntArray
+  }
+  // Object-oriented expressions
+  case class This() extends ExprTree with Symbolic[ClassSymbol] {
+    def getType = TClass(getSymbol)
+  }
+  case class MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) extends ExprTree {
+    def getType = ??? // TODO
+  }
+  case class New(tpe: Identifier) extends ExprTree {
+    def getType = tpe.getType match {
+      case t@TClass(_) => t
+      case other => TError
+    }
+  }
+  // Literals
+  case class IntLit(value: Int) extends ExprTree {
+    val getType = TInt
+  }
+  case class StringLit(value: String) extends ExprTree {
+    val getType = TString
+  }
+  case class True() extends ExprTree {
+    val getType = TBoolean
+  }
+  case class False() extends ExprTree {
+    val getType = TBoolean
+  }
+  // Variables
+  case class Variable(id: Identifier) extends ExprTree {
+    def getType = id.getType
+  }
+
 }
