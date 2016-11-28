@@ -26,7 +26,7 @@ object TypeChecking extends Pipeline[Program, Program] {
     /**
      * Checks that the expression is a subtype of the ones in expectedTps.
      * If it's not, prints an error message and returns the error type.
-     * Also adds missing symbols to methods in MethodCalls
+     * Also adds missing symbols to methods in MethodCalls.
      */
     def tcExpr(expr: ExprTree, expectedTps: Type*): Unit = {
       expr match {
