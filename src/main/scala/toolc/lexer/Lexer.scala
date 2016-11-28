@@ -106,6 +106,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
       case "}}" => true
       case "]]" => true
       case "[[" => true
+      case "!!" => true
       case _ => false
     }
     

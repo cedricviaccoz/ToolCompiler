@@ -11,13 +11,14 @@ object Trees {
   // Identifiers represent names in Tool. When a unique symbol gets attached to them,
   // they become unique
   case class Identifier(value: String) extends Tree with Symbolic[Symbol] with Typed {
+    
     override def getType: Type = getSymbol match {
       case cs: ClassSymbol =>
         TClass(cs)
 
       case ms: MethodSymbol =>
-        sys.error("Requesting type of a method identifier.")
-
+        //sys.error("Requesting type of a method identifier.")
+        ms.getType
       case ms: MainSymbol =>
         sys.error("Requesting type of main object")
 
@@ -90,7 +91,13 @@ object Trees {
   }
   // Arithmetic operators (Plus works on any combination of Int/String)
   case class Plus(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
-    def getType = ??? // TODO
+    def getType = (lhs.getType, rhs.getType) match{
+      case (TInt, TInt) => TInt
+      case (TInt, TString) => TString
+      case (TString, TInt) => TString
+      case (TString, TString) => TString
+      case _ => TError
+    }
   }
   case class Minus(lhs: ExprTree, rhs: ExprTree) extends ExprTree {
     val getType = TInt
@@ -123,7 +130,7 @@ object Trees {
     def getType = TClass(getSymbol)
   }
   case class MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) extends ExprTree {
-    def getType = ??? // TODO
+    def getType = meth.getType 
   }
   case class New(tpe: Identifier) extends ExprTree {
     def getType = tpe.getType match {

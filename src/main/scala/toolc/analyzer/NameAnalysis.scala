@@ -4,6 +4,7 @@ package analyzer
 import utils._
 import ast.Trees._
 import Symbols._
+import Types._
 
 object NameAnalysis extends Pipeline[Program, Program] {
 
@@ -32,8 +33,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
           val clSymb = new ClassSymbol(className).setPos(c)
           global.classes += ((className, clSymb))
           c.setSymbol(clSymb)
-
-        
+          c.id.setSymbol(clSymb)
       }
 
       // Set parent Symbols
@@ -106,11 +106,22 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
                   //we are in the overriden method state here.
                   val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
+                  setTypeSymbol(method.retType, global)
+                  methSym.setType(method.retType.getType)
                   methSym.overridden = lookupMeth
 
                   if (method.args.size == lookupMeth.get.params.size) {
-
                     initMethSymbol(methSym, method)
+                    
+                    //now typechecking in the case of overriding
+                    val twoMethArgs: List[(VariableSymbol, VariableSymbol)] = methSym.argList.zip(lookupMeth.get.argList)
+                    for(e <- twoMethArgs){
+                      if(e._1.getType != e._2.getType){
+                        error(s"Type error : argument of type ${e._1.getType.toString} of the method at position ${e._1.position}"+
+                        s"is not of the same type (${e._2.getType.toString}) as argument of the overriden method at positin ${e._2.position}")
+                      }
+                    }
+                    
                     correspClassSym.methods += ((method.id.value, methSym))
                   } else {
                     //the overriden method doesn't have the same number of parameters as its parent class, need to report the error 
@@ -122,9 +133,12 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
                 //method is not overriden, treat it normally.
                 val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
+                setTypeSymbol(method.retType, global)
+                methSym.setType(method.retType.getType)
+                
                 initMethSymbol(methSym, method)
                 correspClassSym.methods += ((method.id.value, methSym))
-
+                
               }
             }
 
@@ -139,6 +153,8 @@ object NameAnalysis extends Pipeline[Program, Program] {
               } else {
 
                 val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
+                setTypeSymbol(method.retType, global)
+                methSym.setType(method.retType.getType)
                 initMethSymbol(methSym, method)
                 correspClassSym.methods += ((method.id.value, methSym))
               }
@@ -155,9 +171,12 @@ object NameAnalysis extends Pipeline[Program, Program] {
             error(s"method's arguments are duplicated, first occurence found at ${methSym.params(args.id.value).position}")
           } else {
             val argSymbol = new VariableSymbol(args.id.value).setPos(args)
+            setTypeSymbol(args.tpe, global)
+            argSymbol.setType(args.tpe.getType)
             args.setSymbol(argSymbol)
+            args.id.setSymbol(argSymbol)
             methSym.params += ((args.id.value, argSymbol))
-            methSym.argList.::(argSymbol)
+            methSym.argList :+= argSymbol
           }
         }
         analysMethodVars(methSym, methodDecl.vars)
@@ -169,7 +188,10 @@ object NameAnalysis extends Pipeline[Program, Program] {
           error(s"variable at ${variable.position} is already defined at ${currClass.members.get(varName).get.position}")
         } else {
           val membSymb = new VariableSymbol(varName).setPos(variable)
+          setTypeSymbol(variable.tpe, global)
+          membSymb.setType(variable.tpe.getType)
           variable.setSymbol(membSymb)
+          variable.id.setSymbol(membSymb)
           currClass.members += ((varName, membSymb))
         }
       }
@@ -183,7 +205,11 @@ object NameAnalysis extends Pipeline[Program, Program] {
             error(s"method variable at ${member.position} try to override method parameter at ${currMethod.params(member.id.value).position}")
           } else {
             val memSymb = new VariableSymbol(member.id.value).setPos(member)
+            setTypeSymbol(member.tpe, global)
+            memSymb.setType(member.tpe.getType)
             member.setSymbol(memSymb)
+            member.id.setSymbol(memSymb)
+            
             currMethod.members += ((member.id.value, memSymb))
           }
         }
@@ -201,6 +227,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
     def setCSymbols(klass: ClassDecl, gs: GlobalScope): Unit = {
       val classSym = gs.lookupClass(klass.id.value).get
+      klass.setSymbol(classSym)
       klass.id.setSymbol(classSym)
       for (varDecl <- klass.vars) {
         setTypeSymbol(varDecl.tpe, gs)
@@ -283,11 +310,25 @@ object NameAnalysis extends Pipeline[Program, Program] {
       case ArrayLength(arr: ExprTree) => setESymbols(arr)
       case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
         setESymbols(obj)
-        args foreach (setESymbols(_))
+        
+        //need to set Identifier for the method now that we have type checking
+        obj.getType match{
+          case TClass(id) => 
+           val obtClass = gs.lookupClass(id.name)
+           if(obtClass isDefined){
+             val methSymbol = obtClass.get.methods(meth.value)
+             meth.setSymbol(methSymbol)
+           }else error("Type error: method call on a object which doesn't define this method", meth)
+          case _ => error("Trying to call a method on a expression which doesn't evaluate as an object type", meth)
+        }
+        args foreach setESymbols
       case Variable(id: Identifier) => setISymbol(id)
       case th: This =>
-        if (ms isDefined) th.setSymbol(ms.get.classSymbol)
-        else error(s"Cannot call reference to 'this' at${expr.position} on the main object")
+        if (ms isDefined){
+          val referClaSymbol = ms.get.classSymbol 
+          th.setSymbol(referClaSymbol)
+        } 
+        else error(s"Cannot call reference to 'this' at ${expr.position} on the main object")
       case NewIntArray(size: ExprTree) => setESymbols(size)
       case New(tpe: Identifier) =>
         val newClass = gs.lookupClass(tpe.value)
@@ -300,7 +341,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
     def setTypeSymbol(tpe: TypeTree, gs: GlobalScope): Unit = tpe match {
       case ClassType(id) =>
         val classTypeSymb = gs.lookupClass(id.value)
-        if (classTypeSymb isDefined) id.setSymbol(classTypeSymb get)
+        if (classTypeSymb isDefined){id.setSymbol(classTypeSymb get)} 
         else error("Undeclared class type at " + id.position)
       case _ =>
 
