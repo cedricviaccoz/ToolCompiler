@@ -109,6 +109,12 @@ object NameAnalysis extends Pipeline[Program, Program] {
                   setTypeSymbol(method.retType, global)
                   methSym.setType(method.retType.getType)
                   methSym.overridden = lookupMeth
+                  
+                  //testing return types are corresponding
+                  if(lookupMeth.get.getType != methSym.getType){
+                    error("Overriding method doesn't overrides the good return type," 
+                           +s" found ${methSym.getType.toString}, expected ${lookupMeth.get.getType.toString}", method)
+                  }
 
                   if (method.args.size == lookupMeth.get.params.size) {
                     initMethSymbol(methSym, method)
