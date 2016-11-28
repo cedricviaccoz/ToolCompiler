@@ -12,11 +12,11 @@ object NameAnalysis extends Pipeline[Program, Program] {
     import ctx.reporter._
 
     def collectSymbols(prog: Program): GlobalScope = {
-    
+
       val global = new GlobalScope
-      
+
       val mcSym = new MainSymbol(prog.main.id.value)
-      if(prog.main.id.value equals "Object") error(s"Main Object cannot bear the name 'Object' !")
+      if (prog.main.id.value equals "Object") error(s"Main Object cannot bear the name 'Object' !")
       global.mainClass = mcSym
       prog.main.setSymbol(mcSym)
       prog.main.id.setSymbol(mcSym)
@@ -30,10 +30,10 @@ object NameAnalysis extends Pipeline[Program, Program] {
         } else if (c.id.value == prog.main.id.value) {
           error(s"the class at position ${c.position} cannot bear the same name as the main object.")
         }
-          val clSymb = new ClassSymbol(className).setPos(c)
-          global.classes += ((className, clSymb))
-          c.setSymbol(clSymb)
-          c.id.setSymbol(clSymb)
+        val clSymb = new ClassSymbol(className).setPos(c)
+        global.classes += ((className, clSymb))
+        c.setSymbol(clSymb)
+        c.id.setSymbol(clSymb)
       }
 
       // Set parent Symbols
@@ -83,88 +83,85 @@ object NameAnalysis extends Pipeline[Program, Program] {
         val correspClassSym = global.lookupClass(c.id.value) getOrElse sys.error("No ClassSymbol was created for this class declaration")
         if (!correspClassSym.hasBeenVisited) {
 
-          if (correspClassSym.parent isDefined) {
+          correspClassSym.parent match {
             //case of an inherited class
+            case Some(_) =>
+              val parentClDecl: ClassDecl =
+                prog.classes.find { p => p.id == c.parent.get } getOrElse sys.error("No class declaration is being inherited from current class declaration")
+              collectInClass(parentClDecl)
 
-            val parentClDecl: ClassDecl =
-              prog.classes.find { p => p.id == c.parent.get } getOrElse sys.error("No class declaration is being inherited from current class declaration")
-            collectInClass(parentClDecl)
+              //adding the parent's inherited fields and methods
+              correspClassSym.members ++= correspClassSym.parent.get.members
+              correspClassSym.methods ++= correspClassSym.parent.get.methods
 
-            //adding the parent's inherited fields and methods
-            correspClassSym.members ++= correspClassSym.parent.get.members
-            correspClassSym.methods ++= correspClassSym.parent.get.methods
-
-            //and analyzing/adding this class own's members and methods
-            analyseMembers(correspClassSym, c.vars)
-            for (method <- c.methods) {
-              val lookupMeth = correspClassSym.lookupMethod(method.id.value)
-              if (lookupMeth isDefined) {
-                //duplicate method case
-                if (lookupMeth.get.classSymbol == correspClassSym) {
-                  error(s"Method at position ${method.position} is defined twice, first time at ${lookupMeth.get.position}")
-                } else {
-
-                  //we are in the overriden method state here.
-                  val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
-                  setTypeSymbol(method.retType, global)
-                  methSym.setType(method.retType.getType)
-                  methSym.overridden = lookupMeth
-                  
-                  //testing return types are corresponding
-                  if(lookupMeth.get.getType != methSym.getType){
-                    error("Overriding method doesn't overrides the good return type," 
-                           +s" found ${methSym.getType.toString}, expected ${lookupMeth.get.getType.toString}", method)
-                  }
-
-                  if (method.args.size == lookupMeth.get.params.size) {
-                    initMethSymbol(methSym, method)
-                    
-                    //now typechecking in the case of overriding
-                    val twoMethArgs: List[(VariableSymbol, VariableSymbol)] = methSym.argList.zip(lookupMeth.get.argList)
-                    for(e <- twoMethArgs){
-                      if(e._1.getType != e._2.getType){
-                        error(s"Type error : argument of type ${e._1.getType.toString} of the method at position ${e._1.position}"+
-                        s"is not of the same type (${e._2.getType.toString}) as argument of the overriden method at positin ${e._2.position}")
+              //and analyzing/adding this class own's members and methods
+              analyseMembers(correspClassSym, c.vars)
+              for (method <- c.methods) {
+               correspClassSym.lookupMethod(method.id.value) match {
+                 case Some(lookp) =>
+                    //duplicate method case
+                    if (lookp.classSymbol == correspClassSym) {
+                      error(s"Method at position ${method.position} is defined twice, first time at ${lookp.position}")
+                    } else {
+  
+                      //we are in the overriden method state here.
+                      val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
+                      setTypeSymbol(method.retType, global)
+                      methSym.setType(method.retType.getType)
+                      methSym.overridden = Some(lookp)
+  
+                      //testing return types are corresponding
+                      if (lookp.getType != methSym.getType) {
+                        error("Overriding method doesn't overrides the good return type,"
+                          + s" found ${methSym.getType.toString}, expected ${lookp.getType.toString}", method)
                       }
+  
+                      if (method.args.size == lookp.params.size) {
+                        initMethSymbol(methSym, method)
+  
+                        //now typechecking in the case of overriding
+                        val twoMethArgs: List[(VariableSymbol, VariableSymbol)] = methSym.argList.zip(lookp.argList)
+                        for (e <- twoMethArgs) {
+                          if (e._1.getType != e._2.getType) {
+                            error(s"Type error : argument of type ${e._1.getType.toString} of the method at position ${e._1.position}" +
+                              s"is not of the same type (${e._2.getType.toString}) as argument of the overriden method at positin ${e._2.position}")
+                          }
+                        }
+  
+                        correspClassSym.methods += ((method.id.value, methSym))
+                      } else {
+                        //the overriden method doesn't have the same number of parameters as its parent class, need to report the error 
+                        error(s"Overriden method at ${methSym.position} don't have the same number of parameter as the method it overrides at ${lookp.position}")
+                      }
+  
                     }
-                    
+                  case None =>
+                    //method is not overriden, treat it normally.
+                    val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
+                    setTypeSymbol(method.retType, global)
+                    methSym.setType(method.retType.getType)
+  
+                    initMethSymbol(methSym, method)
                     correspClassSym.methods += ((method.id.value, methSym))
-                  } else {
-                    //the overriden method doesn't have the same number of parameters as its parent class, need to report the error 
-                    error(s"Overriden method at ${methSym.position} don't have the same number of parameter as the method it overrides at ${lookupMeth.get.position}")
-                  }
-
                 }
-              } else {
-
-                //method is not overriden, treat it normally.
-                val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
-                setTypeSymbol(method.retType, global)
-                methSym.setType(method.retType.getType)
-                
-                initMethSymbol(methSym, method)
-                correspClassSym.methods += ((method.id.value, methSym))
-                
               }
-            }
 
-          } else {
-            //case of no inherited class
-            analyseMembers(correspClassSym, c.vars)
+            case None =>
+              //case of no inherited class
+              analyseMembers(correspClassSym, c.vars)
 
-            for (method <- c.methods) {
-              val lookupMeth = correspClassSym.lookupMethod(method.id.value)
-              if (lookupMeth isDefined) {
-                error(s"Method at position ${method.position} is defined twice, first time at ${lookupMeth.get.position}")
-              } else {
-
-                val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
-                setTypeSymbol(method.retType, global)
-                methSym.setType(method.retType.getType)
-                initMethSymbol(methSym, method)
-                correspClassSym.methods += ((method.id.value, methSym))
+              for (method <- c.methods) {
+                correspClassSym.lookupMethod(method.id.value) match {
+                  case Some(a) =>
+                    error(s"Method at position ${method.position} is defined twice, first time at ${a.position}")
+                  case None =>
+                    val methSym = new MethodSymbol(method.id.value, correspClassSym).setPos(method)
+                    setTypeSymbol(method.retType, global)
+                    methSym.setType(method.retType.getType)
+                    initMethSymbol(methSym, method)
+                    correspClassSym.methods += ((method.id.value, methSym))
+                }
               }
-            }
           }
           correspClassSym.setVisited
         }
@@ -215,7 +212,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
             memSymb.setType(member.tpe.getType)
             member.setSymbol(memSymb)
             member.id.setSymbol(memSymb)
-            
+
             currMethod.members += ((member.id.value, memSymb))
           }
         }
@@ -265,20 +262,25 @@ object NameAnalysis extends Pipeline[Program, Program] {
       case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) =>
         setESymbols(expr)
         setSSymbols(thn)
-        if (els isDefined) setSSymbols(els.get)
+        els match {
+          case Some(e) => setSSymbols(e)
+          case None    =>
+        }
       case While(expr: ExprTree, stat: StatTree) =>
         setESymbols(expr)
         setSSymbols(stat)
       case Println(expr: ExprTree) => setESymbols(expr)
       case Assign(id: Identifier, expr: ExprTree) =>
-        if (ms isDefined) {
-          setISymbol(id)
-        } else error("Assignment made on the main object at " + id.position)
+        ms match {
+          case Some(_) => setISymbol(id)
+          case None    => error("Assignment made on the main object at " + id.position)
+        }
         setESymbols(expr)
       case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
-        if (ms isDefined) {
-          setISymbol(id)
-        } else error("Assignment made on the main object at " + id.position)
+        ms match {
+          case Some(_) => setISymbol(id)
+          case None    => error("Assignment made on the main object at " + id.position)
+        }
         setESymbols(index)
         setESymbols(expr)
       case DoExpr(e: ExprTree) => setESymbols(e)
@@ -316,39 +318,39 @@ object NameAnalysis extends Pipeline[Program, Program] {
       case ArrayLength(arr: ExprTree) => setESymbols(arr)
       case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
         setESymbols(obj)
-        
+
         //need to set Identifier for the method now that we have type checking
-        obj.getType match{
-          case TClass(id) => 
-           val obtClass = gs.lookupClass(id.name)
-           if(obtClass isDefined){
-             val methSymbol = obtClass.get.methods(meth.value)
-             meth.setSymbol(methSymbol)
-           }else error("Type error: method call on a object which doesn't define this method", meth)
+        obj.getType match {
+          case TClass(id) =>
+            gs.lookupClass(id.name) match {
+              case Some(obtCl) => meth.setSymbol(obtCl.methods(meth.value))
+              case None        => error("Type error: method call on a object which doesn't define this method", meth)
+            }
           case _ => error("Trying to call a method on a expression which doesn't evaluate as an object type", meth)
         }
         args foreach setESymbols
       case Variable(id: Identifier) => setISymbol(id)
       case th: This =>
-        if (ms isDefined){
-          val referClaSymbol = ms.get.classSymbol 
-          th.setSymbol(referClaSymbol)
-        } 
-        else error(s"Cannot call reference to 'this' at ${expr.position} on the main object")
+        ms match{
+          case Some(meth) => th.setSymbol(meth.classSymbol)
+          case None => error(s"Cannot call reference to 'this' at ${expr.position} on the main object")
+        }
       case NewIntArray(size: ExprTree) => setESymbols(size)
       case New(tpe: Identifier) =>
-        val newClass = gs.lookupClass(tpe.value)
-        if (newClass isDefined) tpe.setSymbol(newClass get)
-        else error(s"The class which is constructed at ${tpe.position} has not been declared.")
+        gs.lookupClass(tpe.value) match {
+          case Some(cl) => tpe.setSymbol(cl)
+          case None     => error(s"The class which is constructed at ${tpe.position} has not been declared.")
+        }
       case Not(expr: ExprTree) => setESymbols(expr)
       case _                   =>
     }
 
     def setTypeSymbol(tpe: TypeTree, gs: GlobalScope): Unit = tpe match {
       case ClassType(id) =>
-        val classTypeSymb = gs.lookupClass(id.value)
-        if (classTypeSymb isDefined){id.setSymbol(classTypeSymb get)} 
-        else error("Undeclared class type at " + id.position)
+        gs.lookupClass(id.value) match {
+          case Some(clTpe) => id.setSymbol(clTpe)
+          case None        => error("Undeclared class type at " + id.position)
+        }
       case _ =>
 
     }

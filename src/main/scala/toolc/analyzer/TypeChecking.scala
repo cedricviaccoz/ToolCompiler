@@ -110,7 +110,10 @@ object TypeChecking extends Pipeline[Program, Program] {
       case If(expr, thn, els) =>
         tcExpr(expr, TBoolean)
         tcStat(thn)
-        if (els isDefined) tcStat(els.get)
+        els match{
+          case Some(el) => tcStat(el)
+          case None =>
+        }
       case While(expr, stat) =>
         tcExpr(expr, TBoolean)
         tcStat(stat)
