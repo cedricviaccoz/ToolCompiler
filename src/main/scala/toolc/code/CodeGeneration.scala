@@ -25,10 +25,13 @@ object CodeGeneration extends Pipeline[Program, Unit] {
       val cf = new ClassFile(cs.name, cs.parent.map(_.name))
       cf.setSourceFile(shortFileName)
       cf.addDefaultConstructor
-
-      // TODO: Add class fields
-      // TODO: Add class methods and generate code for them
-
+      
+      for(v <- ct.vars) cf.addField(typeToDescr(v.tpe.getType), v.getSymbol.name)
+      for(m <- ct.methods){
+        val ch = cf.addMethod(typeToDescr(m.retType.getType), m.id.value, m.args map {a => typeToDescr(a.getSymbol.getType)}).codeHandler
+        cGenMethod(ch, m)
+      }
+      
       writeClassFile(cf, outDir, cs.name)
     }
 
@@ -58,6 +61,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
 
     def cGenMethod(ch: CodeHandler, mt: MethodDecl): Unit = {
       val methSym = mt.getSymbol
+      val cs = mt.getSymbol.classSymbol.name
 
       // Maps each argument to one local variable index position
       val argMappings = mt.args.zipWithIndex.map {
@@ -69,19 +73,24 @@ object CodeGeneration extends Pipeline[Program, Unit] {
       val variableMappings = mt.vars.map(v => v.getSymbol.name -> ch.getFreshVar).toMap
 
       val mapping = argMappings ++ variableMappings
-
-      // TODO: generate code for statements
-      // TODO: Generate code for the return expression
-      // TODO: Return with the correct opcode, based on the type of the return expression
-
+      
+      mt.stats foreach (x => cGenStat(x)(ch,mapping, cs))
+      
+      ch << LineNumber(mt.retExpr.line)  
+      cGenExpr(mt.retExpr)(ch, mapping, cs)
+      
+      ch << (typeToDescr(mt.retExpr.getType) match{
+        case "I" | "Z" => IRETURN
+        case _ => ARETURN 
+      })
+      
       ch.freeze
     }
 
     // Generates code for the main method
     def cGenMain(ch: CodeHandler, stmts: List[StatTree], cname: String): Unit = {
-
-      // TODO: generate code for main method
-
+      stmts foreach {s => cGenStat(s)(ch, Map.empty, cname)}
+      ch << RETURN
       ch.freeze
     }
 
@@ -92,12 +101,13 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           stats foreach cGenStat
         
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) =>
+          ch << LineNumber(statement.line)
           cGenExpr(expr)
           val outOfIf = ch.getFreshLabel("outOfIf")
           els match{
             case Some(elseStat) =>
               val elsLabel = ch.getFreshLabel("elsLabel")
-              ch << IfNe(elsLabel)
+              ch << IfEq(elsLabel)
               cGenStat(thn)
               ch << Goto(outOfIf)
               ch << Label(elsLabel)
@@ -109,12 +119,13 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           ch << Label(outOfIf)
           
         case While(expr: ExprTree, stat: StatTree) =>
+          ch << LineNumber(statement.line)
           val whileLabel = ch.getFreshLabel("whileLabel")
           ch << Label(whileLabel)
           cGenExpr(expr)
           val loopLabel = ch.getFreshLabel("loopLabel")
           val outOfLoop = ch.getFreshLabel("OutOfLoop")
-          ch << IfEq(loopLabel)
+          ch << IfNe(loopLabel)
           ch << Goto(outOfLoop)
           ch << Label(loopLabel)
           cGenStat(stat)
@@ -122,9 +133,40 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           ch << Label(outOfLoop)
           
         case Println(expr: ExprTree) =>
-        case Assign(id: Identifier, expr: ExprTree) => 
+          ch << LineNumber(statement.line)
+          ch << GetStatic("java/lang/System", "out", "Ljava/io/PrintStream;")
+          cGenExpr(expr)
+          ch << InvokeVirtual("java/io/PrintStream", "println", "("+typeToDescr(expr.getType)+")V")
+          
+        case Assign(id: Identifier, expr: ExprTree) =>
+          ch << LineNumber(statement.line)
+          val varSymb = id.getSymbol.name
+          if(mapping contains varSymb){
+            cGenExpr(expr)
+            typeToDescr(expr.getType) match{
+              case "I" | "Z" => ch << IStore(mapping(varSymb))
+              case _ => ch << AStore(mapping(varSymb))
+            }
+          }else{
+            ch << ALoad(0)
+            cGenExpr(expr)
+            ch << PutField(cname, varSymb, typeToDescr(expr.getType))  
+          }
+          
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
+          ch << LineNumber(statement.line)
+          val arrSymb = id.getSymbol.name
+          if(mapping contains arrSymb) ch << ALoad(mapping(arrSymb))
+          else{
+            ch << ALoad(0)
+            ch << GetField(cname, arrSymb, typeToDescr(TIntArray  ))
+          }
+          cGenExpr(index)
+          cGenExpr(expr)
+          ch << IASTORE
+          
         case DoExpr(e: ExprTree) =>
+          ch << LineNumber(statement.line)
           cGenExpr(e)
           //we discard the result given, and only keep the code for its side effect.
           ch << POP
@@ -153,7 +195,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           cGenExpr(lhs)
 
           val trueLabel = ch.getFreshLabel("alreadyTrue")
-          ch << IfEq(trueLabel)
+          ch << IfNe(trueLabel)
 
           ch << POP
           cGenExpr(rhs)
@@ -161,7 +203,6 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           ch << Label(trueLabel)
 
         case Not(expr: ExprTree) =>
-          ch << ICONST_0
           cGenExpr(expr)
           val invLabel = ch.getFreshLabel("invLabel")
           val nextLabel = ch.getFreshLabel("notNextLabel")
@@ -181,9 +222,14 @@ object CodeGeneration extends Pipeline[Program, Unit] {
             cGenExpr(lhs)
             cGenExpr(rhs)
             ch << IADD
-          case (TInt, TString)    => ???
-          case (TString, TInt)    => ???
-          case (TString, TString) => ???
+          case (TInt, TString) | (TString, TInt) | (TString, TString) => 
+            val strBldr = "java/lang/StringBuilder"
+            ch << DefaultNew(strBldr)
+            cGenExpr(lhs)
+            ch << InvokeVirtual(strBldr, "append", "("+typeToDescr(lhs.getType)+")L"+strBldr+";")
+            cGenExpr(rhs)
+            ch << InvokeVirtual(strBldr, "append", "("+typeToDescr(rhs.getType)+")L"+strBldr+";")
+            ch << InvokeVirtual(strBldr, "toString", "()Ljava/lang/String;") 
           case _                  => sys.error("addition between two incompatible types at code generation !")
         }
         case Minus(lhs: ExprTree, rhs: ExprTree) =>
@@ -204,38 +250,94 @@ object CodeGeneration extends Pipeline[Program, Unit] {
         case LessThan(lhs: ExprTree, rhs: ExprTree) =>
           cGenExpr(lhs)
           cGenExpr(rhs)
+          
           val greaterEqualLabel = ch.getFreshLabel("greaterEqualLabel")
           val ltNextLabel = ch.getFreshLabel("ltNextLabel")
           ch << If_ICmpGe(greaterEqualLabel)
+          
           ch << ICONST_1
           ch << Goto(ltNextLabel)
+          
           ch << Label(greaterEqualLabel)
           ch << ICONST_0
+          
           ch << Label(ltNextLabel)
 
         // Equality
         case Equals(lhs: ExprTree, rhs: ExprTree) =>
-
+          val equalLabel = ch.getFreshLabel("equalsLabel")
+          val afterEqual = ch.getFreshLabel("afterEquals")
+          (lhs.getType, rhs.getType) match{
+            case (TInt, TInt) | (TBoolean, TBoolean)  =>
+              cGenExpr(rhs)
+              cGenExpr(lhs)
+              ch << If_ICmpEq(equalLabel)
+            case _ =>
+              cGenExpr(rhs)
+              cGenExpr(lhs)
+              ch << If_ACmpEq(equalLabel)
+          }
+          ch << ICONST_0
+          ch << Goto(afterEqual)
+          ch << Label(equalLabel)
+          ch << ICONST_1
+          ch << Label(afterEqual)
+          
         // Array expressions
         case ArrayRead(arr: ExprTree, index: ExprTree) =>
+          cGenExpr(arr)
+          cGenExpr(index)
+          ch << IALOAD
 
         case ArrayLength(arr: ExprTree) =>
+          cGenExpr(arr)
+          ch << ARRAYLENGTH
 
         case NewIntArray(size: ExprTree) =>
+          //SelfNote: T_INT value is 10
+          cGenExpr(size)
+          ch << NewArray.primitive("T_INT")
+          
         // Object-oriented expressions
-        case This() =>
+        case This() => ch << ALoad(0)
+        
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
+          cGenExpr(obj)
+          for(arg <- args) cGenExpr(arg)
+          val objName = obj.getType toString
+          val methSign = "("+args.foldRight(new StringBuilder)((a, sB) => sB.append(typeToDescr(a.getType))).toString + ")"+typeToDescr(meth.getType)
+          val functName = meth.value
+          ch << InvokeVirtual(objName, functName, methSign)
+          
         case New(tpe: Identifier) =>
+          ch << DefaultNew(tpe.value)
+          
+          
         // Literals
         case IntLit(value: Int) => 
-          Ldc(value)
+          ch << Ldc(value)
+          
         case StringLit(value: String) =>
+          ch << Ldc(value)
+          
         case True() => 
           ch << ICONST_1
+          
         case False() => 
           ch << ICONST_0
+          
         case Variable(id: Identifier) =>
-
+          if(mapping contains id.getSymbol.name){
+            //in the case of either a method argument or a intermediate variable is sought.
+            typeToDescr(expr.getType) match{
+              case "I" | "Z" => ch << ILoad(mapping(id.getSymbol.name))
+              case _ => ch << ALoad(mapping(id.getSymbol.name))
+            } 
+          }else{
+            //in the case we seek a class field
+            ch << ALoad(0)
+            ch << GetField(cname, id.getSymbol.name, typeToDescr(expr.getType))
+          }
       }
 
     }
@@ -243,10 +345,10 @@ object CodeGeneration extends Pipeline[Program, Unit] {
     // Transforms a Tool type to the corresponding JVM type description
     def typeToDescr(t: Type): String = t match {
       case TInt      => "I"
-      case TBoolean  => "I"
-      case TIntArray => "A"
-      case TClass(_) => "A"
-      case TString   => "A"
+      case TBoolean  => "Z"
+      case TClass(symb) => "L"+symb.name + ";"
+      case TIntArray => "[I"
+      case TString   => "Ljava/lang/String;"
       case _         => sys.error("Unknown type at compilation time")
     }
 
