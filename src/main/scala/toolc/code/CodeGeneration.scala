@@ -93,13 +93,13 @@ object CodeGeneration extends Pipeline[Program, Unit] {
       ch << RETURN
       ch.freeze
     }
-
+    
     // Generates code for a statement
     def cGenStat(statement: StatTree)(implicit ch: CodeHandler, mapping: LocalsPosMapping, cname: String): Unit = {
       statement match {
         case Block(stats) =>
           stats foreach cGenStat
-        
+          
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) =>
           ch << LineNumber(statement.line)
           cGenExpr(expr)
@@ -113,10 +113,11 @@ object CodeGeneration extends Pipeline[Program, Unit] {
               ch << Label(elsLabel)
               cGenStat(elseStat)
             case None =>
-              ch << IfNe(outOfIf)
+              ch << IfEq(outOfIf)
               cGenStat(thn)
           }
           ch << Label(outOfIf)
+          
           
         case While(expr: ExprTree, stat: StatTree) =>
           ch << LineNumber(statement.line)
@@ -140,17 +141,17 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           
         case Assign(id: Identifier, expr: ExprTree) =>
           ch << LineNumber(statement.line)
-          val varSymb = id.getSymbol.name
-          if(mapping contains varSymb){
-            cGenExpr(expr)
-            typeToDescr(expr.getType) match{
-              case "I" | "Z" => ch << IStore(mapping(varSymb))
-              case _ => ch << AStore(mapping(varSymb))
-            }
-          }else{
-            ch << ALoad(0)
-            cGenExpr(expr)
-            ch << PutField(cname, varSymb, typeToDescr(expr.getType))  
+          mapping.get(id.getSymbol.name) match {
+            case Some(slot) =>
+              cGenExpr(expr)
+              typeToDescr(expr.getType) match {
+                case "I" | "Z" => ch << IStore(slot)
+                case _ => ch << AStore(slot)
+              }
+            case None => 
+              ch << ALoad(0)
+              cGenExpr(expr)
+              ch << PutField(cname, id.getSymbol.name, typeToDescr(expr.getType))  
           }
           
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
@@ -159,7 +160,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           if(mapping contains arrSymb) ch << ALoad(mapping(arrSymb))
           else{
             ch << ALoad(0)
-            ch << GetField(cname, arrSymb, typeToDescr(TIntArray  ))
+            ch << GetField(cname, arrSymb, typeToDescr(TIntArray))
           }
           cGenExpr(index)
           cGenExpr(expr)
@@ -201,7 +202,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           cGenExpr(rhs)
 
           ch << Label(trueLabel)
-
+          
         case Not(expr: ExprTree) =>
           cGenExpr(expr)
           val invLabel = ch.getFreshLabel("invLabel")
@@ -232,6 +233,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
             ch << InvokeVirtual(strBldr, "toString", "()Ljava/lang/String;") 
           case _                  => sys.error("addition between two incompatible types at code generation !")
         }
+        
         case Minus(lhs: ExprTree, rhs: ExprTree) =>
           cGenExpr(lhs)
           cGenExpr(rhs)
@@ -267,14 +269,12 @@ object CodeGeneration extends Pipeline[Program, Unit] {
         case Equals(lhs: ExprTree, rhs: ExprTree) =>
           val equalLabel = ch.getFreshLabel("equalsLabel")
           val afterEqual = ch.getFreshLabel("afterEquals")
+          cGenExpr(rhs)
+          cGenExpr(lhs)
           (lhs.getType, rhs.getType) match{
             case (TInt, TInt) | (TBoolean, TBoolean)  =>
-              cGenExpr(rhs)
-              cGenExpr(lhs)
               ch << If_ICmpEq(equalLabel)
             case _ =>
-              cGenExpr(rhs)
-              cGenExpr(lhs)
               ch << If_ACmpEq(equalLabel)
           }
           ch << ICONST_0
@@ -327,13 +327,14 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           ch << ICONST_0
           
         case Variable(id: Identifier) =>
-          if(mapping contains id.getSymbol.name){
-            //in the case of either a method argument or a intermediate variable is sought.
-            typeToDescr(expr.getType) match{
-              case "I" | "Z" => ch << ILoad(mapping(id.getSymbol.name))
-              case _ => ch << ALoad(mapping(id.getSymbol.name))
-            } 
-          }else{
+          mapping.get(id.getSymbol.name) match {
+          //in the case of either a method argument or a intermediate variable is sought.
+           case Some(slot) =>  
+             typeToDescr(expr.getType) match {
+              case "I" | "Z" => ch << ILoad(slot)
+              case _ => ch << ALoad(slot)
+             }
+           case None =>
             //in the case we seek a class field
             ch << ALoad(0)
             ch << GetField(cname, id.getSymbol.name, typeToDescr(expr.getType))
