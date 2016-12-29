@@ -10,8 +10,11 @@ import java.io.PrintWriter
 object COuputGeneration extends Pipeline[Program, Unit] {
 
   
-  //note : it may be more clever to use streams (à la cafebabe) instead of StringBuilder to generate
-  //the source File, need investigation and discussion.
+  //Note : it may be more clever to use streams (à la cafebabe) instead of StringBuilder to generate
+  //       the source File, need investigation and discussion.
+  //Note : it may be also essential to design a system to control tabulation to have a nice c program to read.
+  //Note : also maybe it would be good to have a corresponding ".h" file, depending how the ast is ordered,
+  //       some structs and method are not visible to the other one if we print it directly in order.
   def run(ctx: Context)(prog: Program): Unit = {
     import ctx.reporter._
     
@@ -37,7 +40,9 @@ object COuputGeneration extends Pipeline[Program, Unit] {
     }
 
     def generateMainMethod(main: MainObject): StringBuilder = {
-      return new StringBuilder()
+      val mainMethod = new StringBuilder("int main(void){\n")
+      main.stats.foldRight(mainMethod)((stmt, sB) => sB append(cGenStat(stmt)))
+      return mainMethod.append("\treturn 0;\n}")
     }
     
     //this object represent 
@@ -45,16 +50,16 @@ object COuputGeneration extends Pipeline[Program, Unit] {
       
       val funcBeginning: StringBuilder = 
         new StringBuilder("void * new(int type){\n"+
-                            "\tvoid * object;"+
-                            "\tswitch(type){")
+                            "\tvoid * object;\n"+
+                            "\tswitch(type){\n")
       
       val funcCases: StringBuilder = new StringBuilder()
       
       val funcEnding: StringBuilder = 
         new StringBuilder("\t\tdefault:\n"+
-                                "\t\t\treturn NULL;"+
-                              "\t}"
-                            +"}")
+                                "\t\t\treturn NULL;\n"+
+                              "\t}\n"
+                            +"}\n")
       
       /**
        * Add a new case in the default constructor to 
@@ -216,9 +221,9 @@ object COuputGeneration extends Pipeline[Program, Unit] {
     val cMainMethod = generateMainMethod(prog.main)
     
     val CProgram: String = new StringBuilder(stdLibImports)
-                            .append(macros)
-                            .append(structAndMethods)
-                            .append(defaultConstructor.complete())
+                            .append(macros+"\n")
+                            .append(structAndMethods+"\n")
+                            .append(defaultConstructor.complete()+"\n")
                             .append(cMainMethod).toString
       
     new PrintWriter(outputName) { write(CProgram); close }
