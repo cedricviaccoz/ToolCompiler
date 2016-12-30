@@ -306,7 +306,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           cGenExpr(obj)
           for(arg <- args) cGenExpr(arg)
           val objName = obj.getType toString
-          val methSign = "("+args.foldRight(new StringBuilder)((a, sB) => sB.append(typeToDescr(a.getType))).toString + ")"+typeToDescr(meth.getType)
+          val methSign = "("+args.foldLeft(new StringBuilder)((sB, a) => sB.append(typeToDescr(a.getType))).toString + ")"+typeToDescr(meth.getType)
           val functName = meth.value
           ch << InvokeVirtual(objName, functName, methSign)
           

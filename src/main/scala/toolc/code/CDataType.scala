@@ -20,7 +20,7 @@ object CDataType {
     def toStringRepr: String = {
       val str = new StringBuilder
       str append ("struct "+name+"{"+bckSpace)
-      membersList.foldRight(str)((mbr, sB) => sB append (tab+mbr.toStringRepr+bckSpace))
+      membersList.foldLeft(str)((sB, mbr) => sB append (tab+mbr.toStringRepr+bckSpace))
       str append ("};" + bckSpace)
       str.toString()
     }
@@ -46,7 +46,7 @@ object CDataType {
   class FunctionPtr(val name: String, val retType: CType, val args: List[CType]){
     def toStringRepr = 
       "("+retType.toString+")(*"+name+")("+
-       args.foldRight(new StringBuilder)((arg, sB) => sB append (arg.toString+", "))+
+       args.foldRight(new StringBuilder)((arg, sB) => sB append (arg.toString+", ")).dropRight(2)+
       ");"
                       
   }
