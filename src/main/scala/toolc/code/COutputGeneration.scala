@@ -9,7 +9,7 @@ import utils._
 import java.io.PrintWriter
 import scala.collection.mutable.ListBuffer
 
-object COuputGeneration extends Pipeline[Program, Unit] {
+object COutputGeneration extends Pipeline[Program, Unit] {
 
   
   //Note : it may be more clever to use streams (à la cafebabe) instead of StringBuilder to generate
