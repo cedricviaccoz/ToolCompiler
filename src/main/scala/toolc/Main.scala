@@ -44,7 +44,7 @@ object Main {
                    Parser andThen
                    NameAnalysis andThen
                    TypeChecking andThen
-                   COuputGeneration
+                   COutputGeneration
 
     pipeline.run(ctx)(ctx.files.head)
 

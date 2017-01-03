@@ -113,7 +113,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
 
     def genMainMethod(main: MainObject): StringBuilder = {
       val mainMethod = new StringBuilder("int main(void){\n")
-      main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt)))
+      main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt)+ ";")) // TODO need to discuss abou the way to handle \t, \n and ;
       return mainMethod.append("\treturn 0;\n}")
     }
     
@@ -154,7 +154,12 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     //maybe put a classDeclaration instead of ClassSymbol here.
     def cGenMethod(cl: ClassDecl, mt: MethodDecl): StringBuilder = {
-      return new StringBuilder()
+      val meth: StringBuilder = new StringBuilder("\t\t"+ toCType(mt.retType.getType) + mt.id.value + " ("+
+          mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(",") + ") {\n\t\t\t\t") 
+      
+      mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt) +";"))
+      
+      return meth.append("\t\t}\n")
     }
     
     
@@ -165,62 +170,80 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           stats.foldLeft(new StringBuilder)((sB, stmt) => sB append cGenStat(stmt))
           
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) =>
-          ???
+          val a = new StringBuilder("\n\t\tif(" +
+              cGenExpr(expr) + 
+              ") {\n\t\t\t\t" +
+              cGenStat(thn) +
+              ";\n\t\t}")
+          val b = {
+            els match {
+              case Some(el) => new StringBuilder(" else {\n" +
+                  cGenStat(el) +
+                  ";\n\t\t}")
+              case None => new StringBuilder()
+            }
+          }
+          return a.append(b) 
           
         case While(expr: ExprTree, stat: StatTree) =>
-          ???
+          return new StringBuilder("\n\t\twhile("+
+              cGenExpr(expr) +
+              ") {\n\t\t\t\t" +
+              cGenStat(stat) +
+              ";\n\t\t\t\t}")
           
         case Println(expr: ExprTree) =>
-          ???
+          return new StringBuilder("printf("+ cGenExpr(expr) +");\n")
           
         case Assign(id: Identifier, expr: ExprTree) =>
-          ???
+          return new StringBuilder(id.value +" = "+ cGenExpr(expr) +";\n")
           
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
-          ???
+          ??? // TODO 
           
         case DoExpr(e: ExprTree) =>
-          ???
+          return cGenExpr(e)
           
         case _ => sys.error("Unknown Statement evaluation at compilation time.")
       }
     }
 
     // Generates code for an expression
-    def cGenExpr(expr: ExprTree)(implicit mt: MethodDecl): StringBuilder = {
+    def cGenExpr(expr: ExprTree)/*(implicit mt: MethodDecl)*/: StringBuilder = {
       expr match {
         case And(lhs, rhs) =>
-          ???
+          return new StringBuilder(cGenExpr(lhs) + " && "+ cGenExpr(rhs))
           
         case Or(lhs, rhs) =>
-          ???
+          return new StringBuilder(cGenExpr(lhs) + " || "+ cGenExpr(rhs))
           
         case Not(expr: ExprTree) =>
-          ???
+          return new StringBuilder("!"+ cGenExpr(expr))
 
         // Arithmetic operators (Plus works on any combination of Int/String)
         case Plus(lhs: ExprTree, rhs: ExprTree) => (lhs.getType, rhs.getType) match {
           case (TInt, TInt) =>
-            ???
+            return new StringBuilder(cGenExpr(lhs) +" + "+ cGenExpr(rhs))
           case (TInt, TString) | (TString, TInt) | (TString, TString) => 
-            ???
+            ??? // TODO
           case _                  => sys.error("addition between two incompatible types at code generation !")
         }
         
         case Minus(lhs: ExprTree, rhs: ExprTree) =>
-          ???
+          return new StringBuilder(cGenExpr(lhs) +" - "+ cGenExpr(rhs))
 
         case Times(lhs: ExprTree, rhs: ExprTree) =>
-          ???
+          return new StringBuilder(cGenExpr(lhs) +" * "+ cGenExpr(rhs)) 
+          
         case Div(lhs: ExprTree, rhs: ExprTree) =>
-          ???
+          return new StringBuilder(cGenExpr(lhs) +" / "+ cGenExpr(rhs))
           
         case LessThan(lhs: ExprTree, rhs: ExprTree) =>
-          ???
+          return new StringBuilder(cGenExpr(lhs) +" < "+ cGenExpr(rhs))
 
         // Equality
         case Equals(lhs: ExprTree, rhs: ExprTree) =>
-          ???
+          ??? // TODO 
           
         // Array expressions
         case ArrayRead(arr: ExprTree, index: ExprTree) =>
@@ -244,19 +267,19 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           
         // Literals
         case IntLit(value: Int) => 
-          ???
+          new StringBuilder(value)
           
         case StringLit(value: String) =>
-          ???
+          new StringBuilder(value)
           
         case True() => 
-          ???
+          new StringBuilder("1")
           
         case False() => 
-          ???
+          new StringBuilder("0")
           
         case Variable(id: Identifier) =>
-          ???
+          new StringBuilder(id.value)
           
       }
 
