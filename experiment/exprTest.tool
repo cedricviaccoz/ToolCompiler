@@ -7,7 +7,7 @@ class Fact {
         if (num < 1)
             num_aux = 1;
         else
-            num_aux = 2;
+            num_aux = num * (this.computeFactorial(num - 1));
         return num_aux;
     }
 }
