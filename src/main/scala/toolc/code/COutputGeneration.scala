@@ -169,8 +169,9 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     //maybe put a classDeclaration instead of ClassSymbol here.
     def cGenMethod(cl: ClassDecl, mt: MethodDecl): StringBuilder = {
+      
       val meth: StringBuilder = new StringBuilder("\n"+ toCType(mt.retType.getType) +" "+ cl.id.value +"_"+ mt.id.value + " ("+
-          mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(",") + ") {\n\t") 
+          "struct "+ cl.id.value +"* this, "+ mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(", ") + ") {\n\t") 
       
       mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)))
       meth.append("\treturn "+ cGenExpr(mt.retExpr) +";") 
@@ -277,15 +278,16 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           
         // Object-oriented expressions
         case This() =>
-          ???
+          return new StringBuilder("this->")
         
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
-          val arguments = {
+          /*val arguments = {
             for{
               a <- args
             } yield(cGenExpr(a))
           }.mkString(",")
-          return new StringBuilder("((struct"+ cGenExpr(obj) +"->"+ meth.value +"("+ arguments +")")
+          return new StringBuilder("((struct"+ cGenExpr(obj) +"->"+ meth.value +"("+ arguments +")")*/
+          ??? // TODO
           
         case New(tpe: Identifier) =>
           return new StringBuilder("new("+ tpe.value.toString() +")")
