@@ -41,7 +41,14 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     macros.append("#define INT_MAX_LENGTH 12\n")
     //must not forget to add a corresponding macro "#define n<className>" for every new class generated
     val intMaxLength = "INT_MAX_LENGTH"
-    
+    //[BEGIN]
+    //add number corresponding to each classes
+    var numberClass = 0
+    while(numberClass < prog.classes.size) {
+      macros.append("#define n"+ prog.classes(numberClass).id.value +" "+ numberClass +"\n")
+      numberClass += 1
+    }
+    //[END]
     
     def genStructAndMethods(ct: ClassDecl): StringBuilder = 
       (for(mt <- ct.methods)yield(cGenMethod(ct, mt))).foldLeft(new StringBuilder(genStructDef(ct).toStringRepr))((a,b) => a append b)
@@ -125,7 +132,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
                             "\tvoid * object;\n"+
                             "\tswitch(type){\n")
       
-      val funcCases: StringBuilder = new StringBuilder()
+      val funcCases: String = programStruct.map { x => addStructConstructor(x) }.mkString("\n")
       
       val funcEnding: StringBuilder = 
         new StringBuilder("\t\tdefault:\n"+
@@ -139,8 +146,16 @@ object COutputGeneration extends Pipeline[Program, Unit] {
        * a struct/class
        * 
        */
-      def addStructConstructor(str: StructDef): Unit = {
-        //TODO
+      def addStructConstructor(str: StructDef): StringBuilder = {
+        val base: StringBuilder = new StringBuilder("\t\tcase n"+ str.name +":\n\t\tobject = malloc(sizeof(struct "+ str.name +"));")
+        
+        def helperAcc(member: StructMember): Unit = member match {
+          case m: StructVar => base.append("\n\t\t((struct "+ str.name +"*) object)->"+ m.getName +" = "+ m.getName +";") 
+          case m: StructFunctionPtr => base.append("\n\t\t((struct "+ str.name +"*) object)->"+ m.getName +" = "+ str.name +"_"+ m.getName +";") 
+        }
+        
+        val el = str.membersList.map{ x => helperAcc(x) }
+        return base.append("\n")
       }
       
       /**
@@ -154,12 +169,12 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     //maybe put a classDeclaration instead of ClassSymbol here.
     def cGenMethod(cl: ClassDecl, mt: MethodDecl): StringBuilder = {
-      val meth: StringBuilder = new StringBuilder("\t\t"+ toCType(mt.retType.getType) +" "+ mt.id.value + " ("+
-          mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(",") + ") {\n\t\t\t\t") 
+      val meth: StringBuilder = new StringBuilder("\n"+ toCType(mt.retType.getType) +" "+ cl.id.value +"_"+ mt.id.value + " ("+
+          mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(",") + ") {\n\t") 
       
       mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)))
-      
-      return meth.append("\n\t\t}\n")
+      meth.append("\treturn "+ cGenExpr(mt.retExpr) +";") 
+      return meth.append("\n}\n")
     }
     
     
@@ -172,14 +187,14 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) =>
           val ifPart = new StringBuilder("if(" +
               cGenExpr(expr) + 
-              ") {\n\t\t\t\t\t\t" +
+              ") {\n\t" +
               cGenStat(thn) +
-              "\t\t\t\t}")
+              "\t}")
           val elsePart = {
             els match {
-              case Some(el) => new StringBuilder(" else {\n\t\t\t\t\t\t" +
+              case Some(el) => new StringBuilder(" else {\n\t" +
                   cGenStat(el) +
-                  "\t\t\t\t}")
+                  "\t}\n")
               case None => new StringBuilder()
             }
           }
@@ -188,9 +203,9 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         case While(expr: ExprTree, stat: StatTree) =>
           return new StringBuilder("while("+
               cGenExpr(expr) +
-              ") {\n\t\t\t\t\t\t" +
+              ") {\n\t" +
               cGenStat(stat) +
-              "\t\t\t\t}")
+              "\t}\n")
           
         case Println(expr: ExprTree) =>
           return new StringBuilder("printf("+ cGenExpr(expr) +");\n") // TODO revenir!!!
@@ -199,10 +214,10 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           return new StringBuilder(id.value +" = "+ cGenExpr(expr) +";\n")
           
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
-          ??? // TODO 
+          return new StringBuilder("\t"+ id.value +"["+ cGenExpr(index) +"] = "+ cGenExpr(expr) +";\n")
           
         case DoExpr(e: ExprTree) =>
-          return cGenExpr(e)
+          return new StringBuilder(cGenExpr(e) +";\n")
           
         case _ => sys.error("Unknown Statement evaluation at compilation time.")
       }
@@ -265,7 +280,12 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           ???
         
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
-          ???
+          val arguments = {
+            for{
+              a <- args
+            } yield(cGenExpr(a))
+          }.mkString(",")
+          return new StringBuilder("((struct"+ cGenExpr(obj) +"->"+ meth.value +"("+ arguments +")")
           
         case New(tpe: Identifier) =>
           return new StringBuilder("new("+ tpe.value.toString() +")")
