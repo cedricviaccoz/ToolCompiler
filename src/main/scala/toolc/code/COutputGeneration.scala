@@ -12,9 +12,6 @@ import scala.collection.mutable.ListBuffer
 object COutputGeneration extends Pipeline[Program, Unit] {
 
   
-  //Note : it may be more clever to use streams (à la cafebabe) instead of StringBuilder to generate
-  //       the source File, need investigation and discussion.
-  //Note : it may be also essential to design a system to control tabulation to have a nice c program to read.
   //Note : also maybe it would be good to have a corresponding ".h" file, depending how the ast is ordered,
   //       some structs and method are not visible to the other one if we print it directly in order.
   //Note : in the context above, maybe typedef the struct ? 
@@ -53,7 +50,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     def genStructAndMethods(ct: ClassDecl): StringBuilder = 
       (for(mt <- ct.methods)yield(cGenMethod(ct, mt))).foldLeft(new StringBuilder(genStructDef(ct).toStringRepr))((a,b) => a append b)
     
-    def genCMethName(className: Identifier, methodName: Identifier ): String = className.value+"_"+methodName.value
+    def genCMethName(className: String, methodName: Identifier ): String = className+"_"+methodName.value
     
     /**
      * takes care of generating a C Struct internal definition according
@@ -106,21 +103,23 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     /**
      * Given the AST methodDecl given as argument, 
-     * will generate 
+     * will generate an internal representation
+     * of the function ptr of the struct.
+     * The "this *" argument is not included here, it
+     * is generated at the toStringRepr side.
      * 
      */
     def genStructFunctPtr(mt: MethodDecl): StructFunctionPtr = {
       val ptr = new FunctionPtr(mt.id.value, 
                                 toCType(mt.retType.getType),
-                                //Adding a CStruct type at the beginning to account for "this" calls.
-                                mt.args.map { arg => toCType(arg.tpe.getType)} ++ List(CDataType.CStruct))
+                                mt.args.map { arg => toCType(arg.tpe.getType)})
       
       return new StructFunctionPtr(ptr, mt)
     }
 
     def genMainMethod(main: MainObject): StringBuilder = {
       val mainMethod = new StringBuilder("int main(void){\n")
-      main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt))) 
+      main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt)(0))) 
       return mainMethod.append("\treturn 0;\n}")
     }
     
@@ -132,13 +131,13 @@ object COutputGeneration extends Pipeline[Program, Unit] {
                             "\tvoid * object;\n"+
                             "\tswitch(type){\n")
       
-      val funcCases: String = programStruct.map { x => addStructConstructor(x) }.mkString("\n")
+      val funcCases: String = (programStruct map addStructConstructor).mkString("\n")
       
       val funcEnding: StringBuilder = 
         new StringBuilder("\t\tdefault:\n"+
                                 "\t\t\treturn NULL;\n"+
-                              "\t}\n"
-                            +"}\n")
+                              "\t}\n\treturn object;"
+                            +"\n}\n")
       
       /**
        * Add a new case in the default constructor to 
@@ -147,15 +146,21 @@ object COutputGeneration extends Pipeline[Program, Unit] {
        * 
        */
       def addStructConstructor(str: StructDef): StringBuilder = {
-        val base: StringBuilder = new StringBuilder("\t\tcase n"+ str.name +":\n\t\tobject = malloc(sizeof(struct "+ str.name +"));")
+        val caseTabLvl = genTabulation(2)
+        val othrTabLvl = genTabulation(3)
+        val base: StringBuilder = new StringBuilder(caseTabLvl+"case n"+ str.name +":\n"+othrTabLvl+"object = malloc(sizeof(struct "+ str.name +"));")
         
         def helperAcc(member: StructMember): Unit = member match {
-          case m: StructVar => base.append("\n\t\t((struct "+ str.name +"*) object)->"+ m.getName +" = "+ m.getName +";") 
-          case m: StructFunctionPtr => base.append("\n\t\t((struct "+ str.name +"*) object)->"+ m.getName +" = "+ str.name +"_"+ m.getName +";") 
+          case m: StructVar =>  
+            //J'ai pas vraiment compris pourquoi tu veux initialiser des variables ici jeune ami nanchen. 
+            //base.append("\n\t\t((struct "+ str.name +"*) object)->"+ m.getName +" = "+ m.getName +";") 
+          case m: StructFunctionPtr => 
+            base.append("\n"+othrTabLvl+"((struct "+ str.name +"*) object)->"+ 
+                                        genCMethName(m.mtDcl.getSymbol.classSymbol.name, m.mtDcl.id)+";") 
         }
         
-        val el = str.membersList.map{ x => helperAcc(x) }
-        return base.append("\n")
+        val el = str.membersList map helperAcc
+        return base.append("\n"+othrTabLvl+"break;\n")
       }
       
       /**
@@ -167,58 +172,62 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     }
    
     
-    //maybe put a classDeclaration instead of ClassSymbol here.
     def cGenMethod(cl: ClassDecl, mt: MethodDecl): StringBuilder = {
       
       val meth: StringBuilder = new StringBuilder("\n"+ toCType(mt.retType.getType) +" "+ cl.id.value +"_"+ mt.id.value + " ("+
-          "struct "+ cl.id.value +"* this, "+ mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(", ") + ") {\n\t") 
+          "struct "+ cl.id.value +"* this, "+ mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(", ") + ") {\n") 
       
-      mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)))
+      mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)(1)))
       meth.append("\treturn "+ cGenExpr(mt.retExpr) +";") 
       return meth.append("\n}\n")
     }
     
+    /*
+     * Helper method which return the the number given as argument as number of tabulation.
+     */
+    def genTabulation(indentLevel: Int):String = (0 until indentLevel).foldLeft(new StringBuilder)((Sb, i) => Sb append tab).toString
     
     // Generates code for a statement
-    def cGenStat(statement: StatTree): StringBuilder = {
+    def cGenStat(statement: StatTree)(implicit indentLvl: Int): StringBuilder = {
       statement match {
         case Block(stats) =>
-          stats.foldLeft(new StringBuilder)((sB, stmt) => sB append cGenStat(stmt))
+          val currTab = genTabulation(indentLvl)
+          stats.foldLeft(new StringBuilder(currTab+"{\n"))((sB, stmt) => sB append cGenStat(stmt)(indentLvl + 1)).append(currTab+"}")
           
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) =>
-          val ifPart = new StringBuilder("if(" +
-              cGenExpr(expr) + 
-              ") {\n\t" +
-              cGenStat(thn) +
-              "\t}")
+          val currentTab = genTabulation(indentLvl)
+          val ifPart = new StringBuilder(currentTab+"if(" +
+              cGenExpr(expr)(indentLvl + 1) + 
+              ")\n" +
+              cGenStat(thn)(indentLvl + 1))
+              
           val elsePart = {
             els match {
-              case Some(el) => new StringBuilder(" else {\n\t" +
-                  cGenStat(el) +
-                  "\t}\n")
-              case None => new StringBuilder()
+              case Some(el) => new StringBuilder(currentTab+"else\n" +
+                  cGenStat(el)(indentLvl+1) +"\n")
+              case None => new StringBuilder("\n")
             }
           }
           return ifPart.append(elsePart) 
           
         case While(expr: ExprTree, stat: StatTree) =>
-          return new StringBuilder("while("+
+          val currTab = genTabulation(indentLvl)
+           return new StringBuilder(currTab+"while("+
               cGenExpr(expr) +
-              ") {\n\t" +
-              cGenStat(stat) +
-              "\t}\n")
+              ")\n" +
+              cGenStat(stat)(indentLvl+1)+"\n")
           
         case Println(expr: ExprTree) =>
-          return new StringBuilder("printf("+ cGenExpr(expr) +");\n") // TODO revenir!!!
+          return new StringBuilder(genTabulation(indentLvl)+"printf("+ cGenExpr(expr) +");\n") // TODO revenir!!!
           
         case Assign(id: Identifier, expr: ExprTree) =>
-          return new StringBuilder(id.value +" = "+ cGenExpr(expr) +";\n")
+          return new StringBuilder(genTabulation(indentLvl)+id.value +" = "+ cGenExpr(expr) +";\n")
           
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
-          return new StringBuilder("\t"+ id.value +"["+ cGenExpr(index) +"] = "+ cGenExpr(expr) +";\n")
+          return new StringBuilder(genTabulation(indentLvl)+ id.value +"["+ cGenExpr(index) +"] = "+ cGenExpr(expr) +";\n")
           
         case DoExpr(e: ExprTree) =>
-          return new StringBuilder(cGenExpr(e) +";\n")
+          return new StringBuilder(genTabulation(indentLvl)+cGenExpr(e) +";\n")
           
         case _ => sys.error("Unknown Statement evaluation at compilation time.")
       }

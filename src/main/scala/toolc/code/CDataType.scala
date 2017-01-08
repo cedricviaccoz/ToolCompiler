@@ -46,7 +46,7 @@ object CDataType {
   class FunctionPtr(val name: String, val retType: CType, val args: List[CType]){
     def toStringRepr = 
       "("+retType.toString+")(*"+name+")("+
-       args.foldRight(new StringBuilder)((arg, sB) => sB append (arg.toString+", ")).dropRight(2)+
+       args.foldLeft(new StringBuilder(CStruct.toString()+", "))((sB, arg) => sB append (arg.toString+", ")).dropRight(2)+
       ");"
                       
   }
