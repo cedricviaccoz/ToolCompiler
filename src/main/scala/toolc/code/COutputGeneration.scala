@@ -155,7 +155,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
             //J'ai pas vraiment compris pourquoi tu veux initialiser des variables ici jeune ami nanchen. 
             //base.append("\n\t\t((struct "+ str.name +"*) object)->"+ m.getName +" = "+ m.getName +";") 
           case m: StructFunctionPtr => 
-            base.append("\n"+othrTabLvl+"((struct "+ str.name +"*) object)->"+ 
+            base.append("\n"+othrTabLvl+"((struct "+ str.name +"*) object)->"+ m.getName +" = "+ 
                                         genCMethName(m.mtDcl.getSymbol.classSymbol.name, m.mtDcl.id)+";") 
         }
         
@@ -174,10 +174,13 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     def cGenMethod(cl: ClassDecl, mt: MethodDecl): StringBuilder = {
       val parameters: StringBuilder = new StringBuilder(if(mt.args.length != 0) {", "+ mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(", ")} else "")
-
+      
+      val variables: StringBuilder = new StringBuilder(mt.vars.map{ x => ("\t"+ toCType(x.tpe.getType) +" "+ x.id.value +";") }.mkString("\n\t"))
+      
       val meth: StringBuilder = new StringBuilder("\n"+ toCType(mt.retType.getType) +" "+ cl.id.value +"_"+ mt.id.value + " ("+
           "struct "+ cl.id.value +"* this"+ parameters +") {\n") 
       
+      meth.append(variables.append("\n"))
       mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)(1, mt)))
       meth.append("\treturn "+ cGenExpr(mt.retExpr)(1, mt) +";") 
       return meth.append("\n}\n")
@@ -294,11 +297,17 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           return new StringBuilder("this")
         
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
-          val arguments = {
-            for{
-              a <- args
-            } yield(cGenExpr(a))
-          }.mkString(", ")
+          val arguments = {for{a <- args}yield(cGenExpr(a))}.mkString(", ")
+          println(programStruct.size) // first time is empty why?!? TODO
+          val nameFunction = {
+          for {
+            list <- programStruct.map{ x => x.membersList}
+            member <- list
+            if(member.getName == meth.value)
+          }yield(member)}
+          println(nameFunction.size)
+          println(cGenExpr(args(0)))
+          // TODO comment gérer l'héritage??
           return new StringBuilder(cGenExpr(obj) +"->"+ meth.value +"("+ arguments +")")
           
         case New(tpe: Identifier) =>

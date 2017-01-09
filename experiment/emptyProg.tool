@@ -5,7 +5,9 @@ class A{
 	var b: Int;
 	var c: Int[];
 
-	def foo(d: Int, c: Int): Int = {
+	def foo(d: Int): Int = {
+		c = new Int[4];
+		c[0] = 2; 
 		return 0;
 	} 
 }
