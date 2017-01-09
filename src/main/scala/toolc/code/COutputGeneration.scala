@@ -119,7 +119,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
 
     def genMainMethod(main: MainObject): StringBuilder = {
       val mainMethod = new StringBuilder("int main(void){\n")
-      main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt)(0))) 
+      main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt)(0, null))) 
       return mainMethod.append("\treturn 0;\n}")
     }
     
@@ -173,12 +173,13 @@ object COutputGeneration extends Pipeline[Program, Unit] {
    
     
     def cGenMethod(cl: ClassDecl, mt: MethodDecl): StringBuilder = {
-      
+      val parameters: StringBuilder = new StringBuilder(if(mt.args.length != 0) {", "+ mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(", ")} else "")
+
       val meth: StringBuilder = new StringBuilder("\n"+ toCType(mt.retType.getType) +" "+ cl.id.value +"_"+ mt.id.value + " ("+
-          "struct "+ cl.id.value +"* this, "+ mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(", ") + ") {\n") 
+          "struct "+ cl.id.value +"* this"+ parameters +") {\n") 
       
-      mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)(1)))
-      meth.append("\treturn "+ cGenExpr(mt.retExpr) +";") 
+      mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)(1, mt)))
+      meth.append("\treturn "+ cGenExpr(mt.retExpr)(1, mt) +";") 
       return meth.append("\n}\n")
     }
     
@@ -188,23 +189,23 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     def genTabulation(indentLevel: Int):String = (0 until indentLevel).foldLeft(new StringBuilder)((Sb, i) => Sb append tab).toString
     
     // Generates code for a statement
-    def cGenStat(statement: StatTree)(implicit indentLvl: Int): StringBuilder = {
+    def cGenStat(statement: StatTree)(implicit indentLvl: Int, mt: MethodDecl): StringBuilder = {
       statement match {
         case Block(stats) =>
           val currTab = genTabulation(indentLvl)
-          stats.foldLeft(new StringBuilder(currTab+"{\n"))((sB, stmt) => sB append cGenStat(stmt)(indentLvl + 1)).append(currTab+"}")
+          stats.foldLeft(new StringBuilder(currTab+"{\n"))((sB, stmt) => sB append cGenStat(stmt)(indentLvl + 1, mt)).append(currTab+"}")
           
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) =>
           val currentTab = genTabulation(indentLvl)
           val ifPart = new StringBuilder(currentTab+"if(" +
-              cGenExpr(expr)(indentLvl + 1) + 
+              cGenExpr(expr)(indentLvl + 1, mt) + 
               ")\n" +
-              cGenStat(thn)(indentLvl + 1))
+              cGenStat(thn)(indentLvl + 1, mt))
               
           val elsePart = {
             els match {
               case Some(el) => new StringBuilder(currentTab+"else\n" +
-                  cGenStat(el)(indentLvl+1) +"\n")
+                  cGenStat(el)(indentLvl+1, mt) +"\n")
               case None => new StringBuilder("\n")
             }
           }
@@ -215,9 +216,10 @@ object COutputGeneration extends Pipeline[Program, Unit] {
            return new StringBuilder(currTab+"while("+
               cGenExpr(expr) +
               ")\n" +
-              cGenStat(stat)(indentLvl+1)+"\n")
+              cGenStat(stat)(indentLvl+1, mt)+"\n")
           
         case Println(expr: ExprTree) =>
+          println(expr.getType)
           return new StringBuilder(genTabulation(indentLvl)+"printf("+ cGenExpr(expr) +");\n") // TODO revenir!!!
           
         case Assign(id: Identifier, expr: ExprTree) =>
@@ -234,7 +236,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     }
 
     // Generates code for an expression
-    def cGenExpr(expr: ExprTree)/*(implicit mt: MethodDecl)*/: StringBuilder = {
+    def cGenExpr(expr: ExprTree)(implicit indentLvl: Int, mt: MethodDecl): StringBuilder = {
       expr match {
         case And(lhs, rhs) =>
           return new StringBuilder(cGenExpr(lhs) + " && "+ cGenExpr(rhs))
@@ -250,12 +252,14 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           case (TInt, TInt) =>
             return new StringBuilder(cGenExpr(lhs) +" + "+ cGenExpr(rhs))
           case (TInt, TString) =>
+            return new StringBuilder("strcat(strcpy(malloc(strlen("+ cGenExpr(lhs) +") + strlen(" + cGenExpr(rhs) +") + 1), itoa(" +
+                cGenExpr(lhs) +"))," + cGenExpr(rhs) +")") 
+          case (TString, TInt) => 
+            return new StringBuilder("strcat(strcpy(malloc(strlen("+ cGenExpr(lhs) +") + sizeof("+ cGenExpr(rhs) +") + 1), "+ 
+                cGenExpr(lhs) +"), itoa("+ cGenExpr(rhs) +"))")
+          case (TString, TString) =>
             return new StringBuilder("strcat(strcpy(malloc(strlen("+ cGenExpr(lhs) +") + strlen(" + cGenExpr(rhs) +") + 1)," +
                 cGenExpr(lhs) +")," + cGenExpr(rhs) +")") 
-          case (TString, TInt) => 
-            return new StringBuilder()
-          case (TString, TString) =>
-            return new StringBuilder() 
           case _                  => sys.error("addition between two incompatible types at code generation !")
         }
         
@@ -287,16 +291,15 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           
         // Object-oriented expressions
         case This() =>
-          return new StringBuilder("this->")
+          return new StringBuilder("this")
         
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
-          /*val arguments = {
+          val arguments = {
             for{
               a <- args
             } yield(cGenExpr(a))
-          }.mkString(",")
-          return new StringBuilder("((struct"+ cGenExpr(obj) +"->"+ meth.value +"("+ arguments +")")*/
-          ??? // TODO
+          }.mkString(", ")
+          return new StringBuilder(cGenExpr(obj) +"->"+ meth.value +"("+ arguments +")")
           
         case New(tpe: Identifier) =>
           return new StringBuilder("new("+ tpe.value.toString() +")")
@@ -315,8 +318,13 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           return new StringBuilder("0")
           
         case Variable(id: Identifier) =>
-          return new StringBuilder(id.value.toString())
-          
+          if (mt.vars.map{ x => x.id }.contains(id) || mt.args.map{ x => x.id }.contains(id)) {
+            // part of the variables or of the arguments of the method
+            return new StringBuilder(id.value.toString())
+          } else {
+            // otherwise it is part of the object itself
+            return new StringBuilder("this->"+ id.value.toString())
+          }          
       }
 
     }
@@ -351,11 +359,31 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     // output main object code
     val cMainMethod = genMainMethod(prog.main)
     
+    // Two helper functions for the concatenation of a string of characters and an int
+    val helperReverseFunction: StringBuilder = new StringBuilder(
+        "\n\n\n// helper functions for the concatenation of a string of characters and an int:\n\n"+
+        "void helper_reverse_plus(char str[], int len) {\n\t"+
+        "int start;\n\tint end;\n\tchar temp;\n\t"+
+        "for(start = 0, end = len-1; start < end; start++, end--) {\n\t\t"+
+        "temp = *(str+start);\n\t\t*(str+start) = *(str+end);\n\t\t*(str+end) = temp;\n\t}\n}\n\n")
+    
+    val helperItoaFunction: StringBuilder = new StringBuilder(
+        "char* itoa(int num) {\n\t"+
+        "int i = 0;\n\tint isNegative = 0;\n\tchar* str = malloc(sizeof(num));\n\n\t"+
+        "if (num == 0) {\n\t\t"+
+        "str[i] = '0';\n\t\tstr[i + 1] = '\\0';\n\t\treturn str;\n\t}\n\n\t"+
+        "if (num < 0) {\n\t\tisNegative = 1;\n\t\tnum = -num;\n\t}\n\n\t"+
+        "while (num != 0) {\n\t\tint rem = num % 10;\n\t\tstr[i++] = (rem > 9) ? (rem - 10) + 'A' : rem + '0';\n\t\tnum = num/10;\n\t}\n\n\t"+
+        "if (isNegative) {\n\t\tstr[i++] = '-';\n\t}\n\n\t"+
+        "str[i] = '\\0';\n\thelper_reverse_plus(str, i);\n\treturn str;\n}\n")
+    
     val CProgram: String = new StringBuilder(stdLibImports)
                             .append(macros+"\n")
                             .append(structAndMethods+"\n")
                             .append(defaultConstructor.complete()+"\n")
-                            .append(cMainMethod).toString
+                            .append(cMainMethod)
+                            .append(helperReverseFunction)
+                            .append(helperItoaFunction).toString
       
     new PrintWriter(outputName) { write(CProgram); close }
 
