@@ -105,7 +105,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
      * Given the AST methodDecl given as argument, 
      * will generate an internal representation
      * of the function ptr of the struct.
-     * The "this *" argument is not included here, it
+     * The "void * this" argument is not included here, it
      * is generated at the toStringRepr side.
      * 
      */
@@ -299,7 +299,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           ??? // TODO
           
         case New(tpe: Identifier) =>
-          return new StringBuilder("new("+ tpe.value.toString() +")")
+          return new StringBuilder("new(n"+ tpe.value.toString() +")")
           
         // Literals
         case IntLit(value: Int) => 
