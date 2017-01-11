@@ -210,8 +210,10 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) =>
           val currentTab = genTabulation(indentLvl)
+          val exprString = cGenExpr(expr)(indentLvl + 1, mt)
+          val exprLastVar = tmpVarGen.getLastVar
           val ifPart = new StringBuilder(currentTab+"if(" +
-              cGenExpr(expr)(indentLvl + 1, mt) + 
+              exprLastVar + 
               ")\n" +
               cGenStat(thn)(indentLvl + 1, mt))
               
@@ -222,27 +224,48 @@ object COutputGeneration extends Pipeline[Program, Unit] {
               case None => new StringBuilder("\n")
             }
           }
-          return ifPart.append(elsePart) 
+          return exprString.append(ifPart).append(elsePart) 
           
         case While(expr: ExprTree, stat: StatTree) =>
           val currTab = genTabulation(indentLvl)
-           return new StringBuilder(currTab+"while("+
-              cGenExpr(expr) +
+          val exprString = cGenExpr(expr)
+          val exprLastVar = tmpVarGen.getLastVar
+          val whileResultVar = new StringBuilder(currTab+"while("+
+              exprLastVar +
               ")\n" +
               cGenStat(stat)(indentLvl+1, mt)+"\n")
+          return exprString.append(whileResultVar)
           
         case Println(expr: ExprTree) =>
-          println(expr.getType)
-          return new StringBuilder(genTabulation(indentLvl)+"printf("+ cGenExpr(expr) +");\n") // TODO revenir!!!
+          val exprString = cGenExpr(expr)
+          val exprLastVar = tmpVarGen.getLastVar
+          val innerPrint: String = expr.getType match {
+            case TInt | TBoolean => "\"%d\""
+            case TString => "\"%s\""
+            case _ => sys.error("The parameter's type of the function println() is incorrect.")
+          }
+          val printlnResultVar = genTabulation(indentLvl) + "printf("+ innerPrint +", "+ exprLastVar +");\n"
+          return exprString.append(printlnResultVar)
           
         case Assign(id: Identifier, expr: ExprTree) =>
-          return new StringBuilder(genTabulation(indentLvl)+id.value +" = "+ cGenExpr(expr) +";\n")
+          val exprString = cGenExpr(expr)
+          val exprLastVar = tmpVarGen.getLastVar
+          val exprResultVar = genTabulation(indentLvl) + id.value + " = " + exprLastVar + ";\n"
+          return exprString.append(exprResultVar)
           
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
-          return new StringBuilder(genTabulation(indentLvl)+ id.value +"["+ cGenExpr(index) +"] = "+ cGenExpr(expr) +";\n")
+          val indexString = cGenExpr(index)
+          val indexLastVar = tmpVarGen.getLastVar
+          val exprString = cGenExpr(expr)
+          val exprLastVar = tmpVarGen.getLastVar
+          val exprResultVar = genTabulation(indentLvl) + id.value + "[" + indexLastVar + "] = " + exprLastVar +";\n"
+          return indexString.append(exprString).append(exprResultVar)
           
         case DoExpr(e: ExprTree) =>
-          return new StringBuilder(genTabulation(indentLvl)+cGenExpr(e) +";\n")
+          val eString = cGenExpr(e)
+          val eLastVar = tmpVarGen.getLastVar
+          val exprResultVar = genTabulation(indentLvl) + eLastVar +";\n"
+          return eString.append(exprResultVar)
           
         case _ => sys.error("Unknown Statement evaluation at compilation time.")
       }
