@@ -410,13 +410,13 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         case ArrayLength(arr: ExprTree) =>
           val arrayString = cGenExpr(arr)
           val arrayLastVar = tmpVarGen.getLastVar
-          val arrayLngVar = genTabulation(indentLvl)+CInt.toString+" "+tmpVarGen.getFreshVar+" = sizeof("+arrayLastVar+") / sizeof(int);\n"
+          val arrayLngVar = genTabulation(indentLvl)+CInt.toString+" "+tmpVarGen.getFreshVar+" = *("+arrayLastVar+"-1);\n"
           return arrayString.append(arrayLngVar)
           
         case NewIntArray(size: ExprTree) =>
           val sizeExpr = cGenExpr(size)
           val sizeVar = tmpVarGen.getLastVar
-          val arrayDecl = genTabulation(indentLvl)+CIntArray.toString+" "+tmpVarGen.getFreshVar+" = calloc("+sizeVar +", sizeof(int));\n"
+          val arrayDecl = genTabulation(indentLvl)+CIntArray.toString+" "+tmpVarGen.getFreshVar+" = arrayAlloc("+sizeVar +");\n"
           return sizeExpr.append(arrayDecl)
           
         // Object-oriented expressions
@@ -544,10 +544,22 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         "if (isNegative) {\n\t\tstr[i++] = '-';\n\t}\n\n\t"+
         "str[i] = '\\0';\n\thelper_reverse_plus(str, i);\n\treturn str;\n}\n")
     
+    /**
+     * Smartly allocate an array of int and keeping its length in -1 place.
+     */
+    val arrayAllocFunc: StringBuilder = new StringBuilder(
+      "int * arrayAlloc(int size){\n"+
+      "\tint * smrtArray = calloc(size + 1, sizeof(int));\n"+
+      "\tsmrtArray[0] = size;\n"+
+      "\treturn (smrtArray + 1);\n"+
+      "}\n"
+    )
+    
     val CProgram: String = new StringBuilder(stdLibImports)
                             .append(macros+"\n")
                             .append(structs+"\n")
                             .append(helperReverseFunction)
+                            .append(arrayAllocFunc)
                             .append(helperItoaFunction)
                             .append(methods+"\n")
                             .append(defaultConstructor.complete()+"\n")
