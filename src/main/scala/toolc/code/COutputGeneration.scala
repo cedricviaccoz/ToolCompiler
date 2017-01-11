@@ -327,7 +327,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
             val rhsString = cGenExpr(rhs)
             val rhsLastVar = tmpVarGen.getLastVar
             
-            val concat = "strcat(strcpy(malloc(strlen("+ lhsLastVar +") + strlen(" + rhsLastVar +") + 1), itoa(" +
+            val concat = "strcat(strcpy(malloc(strlen("+ lhsLastVar +") + strlen(itoa(" + rhsLastVar +")) + 1), itoa(" +
                 lhsLastVar +"))," + rhsLastVar +")"
             val plusExprResultVar = genTabulation(indentLvl)+CString.toString()+" "+tmpVarGen.getFreshVar+" = "+concat+";\n"
             return lhsString.append(rhsString).append(plusExprResultVar)
@@ -338,7 +338,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
             val rhsString = cGenExpr(rhs)
             val rhsLastVar = tmpVarGen.getLastVar
             
-            val concat = "strcat(strcpy(malloc(strlen("+ lhsLastVar +") + sizeof("+ rhsLastVar +") + 1), "+ 
+            val concat = "strcat(strcpy(malloc(strlen("+ lhsLastVar +") + strlen(itoa("+ rhsLastVar +")) + 1), "+ 
                 lhsLastVar +"), itoa("+ rhsLastVar +"))"
             val plusExprResultVar = genTabulation(indentLvl)+CString.toString()+" "+tmpVarGen.getFreshVar+" = "+concat+";\n"
             return lhsString.append(rhsString).append(plusExprResultVar)
