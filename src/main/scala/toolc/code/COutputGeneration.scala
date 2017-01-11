@@ -185,7 +185,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     def cGenMethod(cl: ClassDecl, mt: MethodDecl): StringBuilder = {
       val parameters: StringBuilder = new StringBuilder(if(mt.args.length != 0) {", "+ mt.args.map { x => toCType(x.tpe.getType) +" "+ x.id.value }.mkString(", ")} else "")
       
-      val variables: StringBuilder = new StringBuilder(mt.vars.map{ x => ("\t"+ toCType(x.tpe.getType) +" "+ x.id.value +";") }.mkString("\n\t"))
+      val variables: StringBuilder = new StringBuilder(mt.vars.map{ x => ("\t"+ toCType(x.tpe.getType) +" "+ x.id.value +";") }.mkString("\n"))
       
       val meth: StringBuilder = new StringBuilder("\n"+ toCType(mt.retType.getType) +" "+ cl.id.value +"_"+ mt.id.value + " ("+
            CStruct.toString()+" this"+ parameters +") {\n") 
@@ -218,13 +218,13 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           val ifPart = new StringBuilder(currentTab+"if(" +
               exprLastVar + 
               "){\n" +
-              cGenStat(thn)(indentLvl + 1, mt))+currentTab+"}\n"
+              cGenStat(thn)(indentLvl + 1, mt)+currentTab+"}\n")
               
           val elsePart = {
             els match {
               case Some(el) => new StringBuilder(currentTab+"else {\n" +
                   cGenStat(el)(indentLvl+1, mt) +currentTab+"}\n")
-              case None => new StringBuilder("\n")
+              case None => ""
             }
           }
           return exprString.append(ifPart).append(elsePart) 
@@ -235,15 +235,24 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           val exprLastVar = tmpVarGen.getLastVar
           val whileResultVar = new StringBuilder(currTab+"while("+
               exprLastVar +
-              ")\n" +
+              "){\n" +
               cGenStat(stat)(indentLvl+1, mt)+"\n")
-          return exprString.append(whileResultVar)
+          /*
+           * Now in our model, the condition will be evaluated only one time and
+           * be stocked in a variable, thus the while loop will always evaluate its condition
+           * with a variable whose value is not changed, thus either loop infintely or never execute the loops code.
+           * Thus, we need to reevaluate our condition at the end of each loop
+           */
+          val reevaluationExpr = cGenExpr(expr)(indentLvl + 1, mt)
+          val reevaluationRes = tmpVarGen.getLastVar
+          val reevaluationAssign = currTab+tab+exprLastVar+" = "+reevaluationRes+";\n"+currTab+"}\n"
+          return exprString.append(whileResultVar).append(reevaluationExpr).append(reevaluationAssign)
           
         case Println(expr: ExprTree) =>
           val exprString = cGenExpr(expr)
           val exprLastVar = tmpVarGen.getLastVar
           val innerPrint: String = expr.getType match {
-            case TInt | TBoolean => "\"%d\""
+            case TInt | TBoolean => "\"%d\\n\""
             case TString => "\"%s\\n\""
             case _ => sys.error("The parameter's type of the function println() is incorrect.")
           }
@@ -251,17 +260,20 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           return exprString.append(printlnResultVar)
           
         case Assign(id: Identifier, expr: ExprTree) =>
+          //we need to determine if our variable to be assigned is a struct field or a method variable.
+          val toAssign = determineVarOrField(id, mt)
           val exprString = cGenExpr(expr)
           val exprLastVar = tmpVarGen.getLastVar
-          val exprResultVar = genTabulation(indentLvl) + id.value + " = " + exprLastVar + ";\n"
+          val exprResultVar = genTabulation(indentLvl) + toAssign + " = " + exprLastVar + ";\n"
           return exprString.append(exprResultVar)
           
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
+          val arrayId = determineVarOrField(id, mt)
           val indexString = cGenExpr(index)
           val indexLastVar = tmpVarGen.getLastVar
           val exprString = cGenExpr(expr)
           val exprLastVar = tmpVarGen.getLastVar
-          val exprResultVar = genTabulation(indentLvl) + id.value + "[" + indexLastVar + "] = " + exprLastVar +";\n"
+          val exprResultVar = genTabulation(indentLvl) + arrayId + "[" + indexLastVar + "] = " + exprLastVar +";\n"
           return indexString.append(exprString).append(exprResultVar)
           
         case DoExpr(e: ExprTree) =>
@@ -452,21 +464,28 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           return new StringBuilder(genTabulation(indentLvl)+"int "+tmpVarGen.getFreshVar+" = 0;\n")
           
         case Variable(id: Identifier) =>
-          mt match{
-            case Some(meth) => 
-              if (meth.vars.map{_.id }.contains(id) || meth.args.map{_.id }.contains(id)) {
-                // part of the variables or of the arguments of the method
-                return new StringBuilder(genTabulation(indentLvl)+toCType(id.getType).toString+" "+tmpVarGen.getFreshVar+" = "+id.value.toString()+";\n")
-              } else {
-                // otherwise it is part of the object itself
-                val methClassName = meth.getSymbol.classSymbol.name // we need to retrieve the class from where this method stem to cast the this pointer.
-                val structVarString = "((struct "+methClassName+"*)this)->"+ id.value.toString()
-                return new StringBuilder(genTabulation(indentLvl)+toCType(id.getType).toString+" "+tmpVarGen.getFreshVar+" = "+structVarString+";\n")
-              }          
-            case None => sys.error("Using variable/argument in non variable/argument context at compilation time")
-          }
+          val varTrueName = determineVarOrField(id, mt)
+          return new StringBuilder(genTabulation(indentLvl)+toCType(id.getType).toString+" "+tmpVarGen.getFreshVar+" = "+varTrueName+";\n")
       }
-
+    }
+    
+    /**
+     * Utilitary function that according to the id given as an argument,
+     * will take care or returning it as simply a variable if the id refer a method
+     * variable, or the field of the corresponding struct
+     * 
+     */
+    def determineVarOrField(id: Identifier, mt: Option[MethodDecl]): String = mt match {
+      case Some(meth) => 
+        if (meth.vars.map{_.id }.contains(id) || meth.args.map{_.id }.contains(id)) {
+          // part of the variables or of the arguments of the method
+          id.value.toString()
+        } else {
+          // otherwise it is part of the object itself
+          val methClassName = meth.getSymbol.classSymbol.name // we need to retrieve the class from where this method stem to cast the this pointer.
+          "((struct "+methClassName+"*)this)->"+ id.value.toString()
+        }          
+      case None => sys.error("Using variable/argument in non variable/argument context at compilation time")
     }
 
     // Transforms a Tool type to the corresponding C type
@@ -492,6 +511,12 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     val outputName = if(sourceName.contains(".tool")){
       sourceName.replaceAll(".tool", "Tool.c")
     }else sourceName + "Tool.c"
+    
+    val headerFileName = outputName.dropRight(1)+"h"
+    macros.append("#include \""+headerFileName+"\"")
+     
+    val headerFileCode = "#ifndef "+outputName.dropRight(2).toUpperCase()+"_H_\n#define "+outputName.dropRight(2).toUpperCase()+"_H_\n"+
+                          "void * new(int type);\n\n#endif"
 
     // output struct corresponding to the original Tool classes
     val structs =  prog.classes.foldLeft(new StringBuilder)((sB, cl) => sB append genStructDef(cl).toStringRepr)
@@ -529,6 +554,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
                             .append(cMainMethod).toString
       
     new PrintWriter(outputName) { write(CProgram); close }
+    new PrintWriter(headerFileName) { write(headerFileCode); close}
 
   }
 
