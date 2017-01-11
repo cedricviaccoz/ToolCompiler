@@ -1,20 +1,56 @@
 This is a very important section, you explain to us how you made it work.
 
 \subsection{Theoretical Background}
-If you are using theoretical concepts, explain them first in this subsection.
-Even if they come from the course (eg. lattices), try to explain the essential
-points \emph{in your own words}. Cite any reference work you used like this
-\cite{TigerBook}. This should convince us that you know the theory behind what
-you coded. 
+% tu penses y mettre quelque chose?
 
 \subsection{Implementation Details}
-Describe all non-obvious tricks you used. Tell us what you thought was hard and
-why. If it took you time to figure out the solution to a problem, it probably
-means it wasn't easy and you should definitely describe the solution in details
-here. If you used what you think is a cool algorithm for some problem, tell us.
-Do not however spend time describing trivial things (we what a tree traversal
-is, for instance). 
+Two files were created to implement this project.
+\newline
+The first one is \say{CDataType.scala}. It contains a class that depicts the C's structure.
+\begin{lstlisting}
+  class StructDef(val name: String, val membersList: ListBuffer[StructMember])
+\end{lstlisting}
+ A trait \say{StructMember} is extended by two class to implement the two sort of structure's members,
+ which are a variable or a pointer to a function (as explained in section 2. Examples).
+ Without forgetting to define a class \say{FunctionPtr}. It defines the fact that each function have as first parameter
+ a generic pointer to the calling structure.
+ \begin{lstlisting}
+   class StructVar(val name: String, val tpe: CType) extends StructMember {
+     // some code
+   }
 
-After reading this section, we should be convinced that you knew what you were
-doing when you wrote your extension, and that you put some extra consideration
-for the harder parts.
+   class StructFunctionPtr(val ptr: FunctionPtr, var mtDcl: MethodDecl) extends StructMember {
+     // some code
+   }
+
+   class FunctionPtr(val name: String, val retType: CType, val args: List[CType]) {
+     // some code
+   }
+ \end{lstlisting}
+The second file is \say{COutputGeneration.scala}. Its skeleton and behavior is based on the \say{CodeGeneration.scala} completed
+to output binary code for the Java Virtual Machine.
+\newline
+The first logic was to uses the same method
+\subsubsection{Inheritance}
+\subsubsection{Dynamic dispatch}
+\subsubsection{Method chaining}
+This problem was one, that we had not seen coming.
+\newline
+In Tool, there is the possibility to write multiple call to a method on one line.
+It works because each method returns an object. We can't directly translate it in C programming language.
+To tackle this problem, we created a simple object: \say{tmpVarGen}.
+\begin{lstlisting}
+  object tmpVarGen{
+    private var counter = 0
+    def getFreshVar: String = {
+      counter += 1
+      return "tmp"+counter
+    }
+    def getLastVar: String = "tmp"+counter
+  }
+\end{lstlisting}
+It is used to have a unique variable name. It has two methods.
+\say{getLastVar} returns the last created variable name.
+\say{getFreshVar} return a new variable name.
+\newline
+Now at each evaluation of an expression
