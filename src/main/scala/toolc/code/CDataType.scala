@@ -45,7 +45,7 @@ object CDataType {
   // don't forget each function need at least as an argument a generic pointer to the struct itself. 
   class FunctionPtr(val name: String, val retType: CType, val args: List[CType]){
     def toStringRepr = 
-      "("+retType.toString+")(*"+name+")("+
+      retType.toString+" (*"+name+")("+
        args.foldLeft(new StringBuilder(CStruct.toString()+", "))((sB, arg) => sB append (arg.toString+", ")).dropRight(2)+
       ");"
                       

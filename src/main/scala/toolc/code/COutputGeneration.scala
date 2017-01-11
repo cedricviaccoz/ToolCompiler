@@ -10,6 +10,17 @@ import java.io.PrintWriter
 import scala.collection.mutable.ListBuffer
 
 object COutputGeneration extends Pipeline[Program, Unit] {
+  
+  object tmpVarGen{
+    private var counter = 0
+    def getFreshVar: String = {
+      counter += 1
+      return "tmp"+counter
+    }
+    def getLastVar: String = {
+      return "tmp"+counter
+    }
+  }
 
   
   //Note : also maybe it would be good to have a corresponding ".h" file, depending how the ast is ordered,
@@ -47,9 +58,10 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     }
     //[END]
     
-    def genStructAndMethods(ct: ClassDecl): StringBuilder = 
-      (for(mt <- ct.methods)yield(cGenMethod(ct, mt))).foldLeft(new StringBuilder(genStructDef(ct).toStringRepr))((a,b) => a append b)
     
+    def genMethods(ct: ClassDecl): StringBuilder = 
+        (for(mt <- ct.methods)yield(cGenMethod(ct, mt))).foldLeft(new StringBuilder())((a,b) => a append b)
+        
     def genCMethName(className: String, methodName: Identifier ): String = className+"_"+methodName.value
     
     /**
@@ -119,11 +131,11 @@ object COutputGeneration extends Pipeline[Program, Unit] {
 
     def genMainMethod(main: MainObject): StringBuilder = {
       val mainMethod = new StringBuilder("int main(void){\n")
-      main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt)(0, null))) 
+      main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt)(0, None))) 
       return mainMethod.append("\treturn 0;\n}")
     }
     
-    //this object represent 
+    //this object represents the construction of the default constructor method called "new" 
     object defaultConstructor{
       
       val funcBeginning: StringBuilder = 
@@ -178,21 +190,21 @@ object COutputGeneration extends Pipeline[Program, Unit] {
       val variables: StringBuilder = new StringBuilder(mt.vars.map{ x => ("\t"+ toCType(x.tpe.getType) +" "+ x.id.value +";") }.mkString("\n\t"))
       
       val meth: StringBuilder = new StringBuilder("\n"+ toCType(mt.retType.getType) +" "+ cl.id.value +"_"+ mt.id.value + " ("+
-          "struct "+ cl.id.value +"* this"+ parameters +") {\n") 
+           CStruct.toString()+" this"+ parameters +") {\n") 
       
       meth.append(variables.append("\n"))
-      mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)(1, mt)))
-      meth.append("\treturn "+ cGenExpr(mt.retExpr)(1, mt) +";") 
+      mt.stats.foldLeft(meth)((sB, stmt) => sB append(cGenStat(stmt)(1, Some(mt))))
+      meth.append("\treturn "+ cGenExpr(mt.retExpr)(1, Some(mt)) +";") 
       return meth.append("\n}\n")
     }
     
     /*
-     * Helper method which return the the number given as argument as number of tabulation.
+     * Helper method which return the number given as argument as a chain of char tabulation.
      */
     def genTabulation(indentLevel: Int):String = (0 until indentLevel).foldLeft(new StringBuilder)((Sb, i) => Sb append tab).toString
     
     // Generates code for a statement
-    def cGenStat(statement: StatTree)(implicit indentLvl: Int, mt: MethodDecl): StringBuilder = {
+    def cGenStat(statement: StatTree)(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
       statement match {
         case Block(stats) =>
           val currTab = genTabulation(indentLvl)
@@ -239,10 +251,15 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     }
 
     // Generates code for an expression
-    def cGenExpr(expr: ExprTree)(implicit indentLvl: Int, mt: MethodDecl): StringBuilder = {
+    def cGenExpr(expr: ExprTree)(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
       expr match {
         case And(lhs, rhs) =>
-          return new StringBuilder(cGenExpr(lhs) + " && "+ cGenExpr(rhs))
+          val lhsString = cGenExpr(lhs)
+          val lhsLastVar = tmpVarGen.getLastVar
+          val rhsString = cGenExpr(rhs)
+          val rhsLastVar = tmpVarGen.getLastVar
+          val andExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" && "+rhsLastVar+";"
+          return new StringBuilder(lhsString.append(rhsString).append(andExprResultVar).toString)
           
         case Or(lhs, rhs) =>
           return new StringBuilder(cGenExpr(lhs) + " || "+ cGenExpr(rhs))
@@ -298,17 +315,18 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
           val arguments = {for{a <- args}yield(cGenExpr(a))}.mkString(", ")
-          println(programStruct.size) // first time is empty why?!? TODO
           val nameFunction = {
           for {
-            list <- programStruct.map{ x => x.membersList}
+            list <- programStruct.map{_.membersList}
             member <- list
             if(member.getName == meth.value)
           }yield(member)}
-          println(nameFunction.size)
-          println(cGenExpr(args(0)))
-          // TODO comment gérer l'héritage??
-          return new StringBuilder(cGenExpr(obj) +"->"+ meth.value +"("+ arguments +")")
+          val objStrB = cGenExpr(obj)
+          val structCast = obj.getType match{
+            case TClass(c) => c.name
+            case _  => sys.error("Calling method on a non object field.")
+          }
+          return new StringBuilder("(( struct "+structCast+" * )"+cGenExpr(obj) +")->"+ meth.value +"("+ arguments +")")
           
         case New(tpe: Identifier) =>
           return new StringBuilder("new(n"+ tpe.value.toString() +")")
@@ -327,13 +345,18 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           return new StringBuilder("0")
           
         case Variable(id: Identifier) =>
-          if (mt.vars.map{ x => x.id }.contains(id) || mt.args.map{ x => x.id }.contains(id)) {
-            // part of the variables or of the arguments of the method
-            return new StringBuilder(id.value.toString())
-          } else {
-            // otherwise it is part of the object itself
-            return new StringBuilder("this->"+ id.value.toString())
-          }          
+          mt match{
+            case Some(meth) => 
+              if (meth.vars.map{_.id }.contains(id) || meth.args.map{_.id }.contains(id)) {
+                // part of the variables or of the arguments of the method
+                return new StringBuilder(id.value.toString())
+              } else {
+                // otherwise it is part of the object itself
+                val methClassName = meth.getSymbol.classSymbol.name // we need to retrieve the class from where this method stem to cast the this pointer.
+                return new StringBuilder("((struct "+methClassName+"*)this)->"+ id.value.toString())
+              }          
+            case None => sys.error("Using variable/argument in non variable/argument context at compilation time")
+          }
       }
 
     }
@@ -362,8 +385,10 @@ object COutputGeneration extends Pipeline[Program, Unit] {
       sourceName.replaceAll(".tool", "Tool.c")
     }else sourceName + "Tool.c"
 
-    // output class code in C version 
-    val structAndMethods =  prog.classes.foldLeft(new StringBuilder)((sB, cl) => sB append genStructAndMethods(cl))
+    // output struct corresponding to the original Tool classes
+    val structs =  prog.classes.foldLeft(new StringBuilder)((sB, cl) => sB append genStructDef(cl).toStringRepr)
+    
+    val methods = prog.classes.foldLeft(new StringBuilder)((sB, cl) => sB append genMethods(cl))
 
     // output main object code
     val cMainMethod = genMainMethod(prog.main)
@@ -378,7 +403,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     val helperItoaFunction: StringBuilder = new StringBuilder(
         "char* itoa(int num) {\n\t"+
-        "int i = 0;\n\tint isNegative = 0;\n\tchar* str = malloc(sizeof(num));\n\n\t"+
+        "int i = 0;\n\tint isNegative = 0;\n\tchar* str = malloc("+intMaxLength+");\n\n\t"+
         "if (num == 0) {\n\t\t"+
         "str[i] = '0';\n\t\tstr[i + 1] = '\\0';\n\t\treturn str;\n\t}\n\n\t"+
         "if (num < 0) {\n\t\tisNegative = 1;\n\t\tnum = -num;\n\t}\n\n\t"+
@@ -388,11 +413,12 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     val CProgram: String = new StringBuilder(stdLibImports)
                             .append(macros+"\n")
-                            .append(structAndMethods+"\n")
-                            .append(defaultConstructor.complete()+"\n")
-                            .append(cMainMethod)
+                            .append(structs+"\n")
                             .append(helperReverseFunction)
-                            .append(helperItoaFunction).toString
+                            .append(helperItoaFunction)
+                            .append(methods+"\n")
+                            .append(defaultConstructor.complete()+"\n")
+                            .append(cMainMethod).toString
       
     new PrintWriter(outputName) { write(CProgram); close }
 
