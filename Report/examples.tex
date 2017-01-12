@@ -1,21 +1,32 @@
-First it is important to see the representation of an object in C.
+The example below presents how a class and the inheritance are depicted in C programming language.
 \begin{lstlisting}
-  class Rectangle {
-    var width: Int;
-    var height: Int;
+class Rectangle{
+  var width: Int;
+  var height: Int;
 
-    def area(): Int = {
-      return width * height;
-    }
+  def area(): Int = {
+    return width * height;
   }
+}
+
+class Square extends{
+  var side: Int;
+}
 \end{lstlisting}
 This Tool code will be pretty-printed in C like this:
 \begin{lstlisting}
-  struct Rectangle{
-    int width;
-    int heigth;
-    int (*area)(struct Rectangle*);
-  }
+struct Rectangle{
+  int width;
+  int heigth;
+  int (*area)(struct void*);
+}
+
+struct Square{
+  int width;
+  int heigth;
+  int side;
+  int (*area)(struct void*)
+}
 
   int Rectangle_area(struct Rectangle* this) {
     return this->width * this->height;
@@ -34,5 +45,5 @@ Thus the belonging to the \say{Rectangle} class is suggested.
 Therefore this is how the C code mimics the behavior of an object-oriented class.
 \newline
 There exists other dilemma like inheritance, dynamic dispatch,\ldots, which be discussed
-in the implementation section. 
+in the implementation section.
 \newline
