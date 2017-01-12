@@ -1,7 +1,10 @@
 This is a very important section, you explain to us how you made it work.
 
 \subsection{Theoretical Background}
-The only background needed for this extension is knowing the tool's AST and the C language. However since we are trying to emulate an object-oriented language into one that is not, the book ``Object-oriented programming in ANSCI-C''\footnote{https://www.cs.rit.edu/~ats/books/ooc.pdf} by Axel Schreiner has been useful for some concepts and it will be referenced throughout this report.
+The only background needed for this extension is knowing the tool's AST and the C language.
+However since we are trying to emulate an object-oriented language into one that is not,
+the book ``Object-oriented programming in ANSCI-C''\footnote{https://www.cs.rit.edu/~ats/books/ooc.pdf}
+by Axel Schreiner has been useful for some concepts and it will be referenced throughout this report.
 
 \subsection{Implementation Details}
 Two files were created to implement this project.
@@ -13,7 +16,9 @@ The first one is \say{CDataType.scala}. It contains a class that depicts the C's
     val membersList: ListBuffer[StructMember])
 \end{lstlisting}
  A trait \say{StructMember} is extended by two classes to implement the two kinds of structure's members,
- which are a variable or a pointer to a function (as explained in section 2. Examples). The pointer to a function holds two fields, one for an internal representation of a C function pointer (the class \say{FunctionPtr}) , and one for the AST version of the method declaration that should be linked to the pointer. 
+ which are a variable or a pointer to a function (as explained in section 2. Examples).
+ The pointer to a function holds two fields, one for an internal representation of a C function pointer (the class \say{FunctionPtr}),
+ and one for the AST version of the method declaration that should be linked to the pointer.
 
  \begin{lstlisting}
 class StructVar(val name: String,
@@ -35,22 +40,81 @@ class FunctionPtr(val name: String,
 The second file is \say{COutputGeneration.scala}. Its skeleton and behavior is based on the \say{CodeGeneration.scala} completed
 to output binary code for the Java Virtual Machine.
 The program uses the same architecture of methods like: \say{cGenMethod}, \say{cGenStats}, \say{cGenExpr}.
-Each of this method returns a \say{StringBuilder}.
+Each of this method returns a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|}.
 \newline
 The final is a .h and .c, which encloses all the StringBuilders concatened.
 \newline
+\paragraph{Overview}
+The main method of the object
+\newline
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|COutputGeneration|} is
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|def run(ctx: Context)(prog: Program)|}, which takes
+in parameter the AST of the code. % TODO correct?!
+\newline
+The method starts by creating a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilders|} for the preprocessor directives.
+It includes the headers \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|stdio.h, string.h and stdlib.h|}.
+It contains \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|#define INT_MAX_LENGTH 12|}, which is useful
+in order to have correct Int to string of characters concatenation.
+It also encloses the definition of default constructor for every classes of the program.
+Per example for the program used in section 2.Examples, it would be:
+\begin{lstlisting}
+#define nAnimal 0
+#define nDog 1
+\end{lstlisting}
+Finally, a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|} contains the inclusion of the file's header,
+which is directly created.
+\newline
+Afterward a method takes care of generating the structures corresponding to the Tool's classes:
+\newline
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|def genStructDef(ct: ClassDecl): StructDef|}.
+The method takes as parameters a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|ClassDecl|}
+and returns a corresponding \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StructDef|},
+which was presented in section 3.2.1 Data Type. Then the \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StructDef|}'s method
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|toStringRepr|} to return the structures as String.
+\newline
+Thereafter % Talk about the methods
+
+
 \paragraph{Inheritance}
-\break
 
 \paragraph{Dynamic dispatch}
-Dynamic dispatch is accomplished during the default construction of a new Instance of a class. In tool, there is only on type of constructor, the default one. One idea we borrowed from our reference book\footnote{www.cs.rit.edu/~ats/books/ooc.pdf at page 11, si jamais faudra mettre ca dans la bibliography à la fin scuse} was to have a default method be outputed called ``new'' which would take care or creating a new Instance of a struct and returning it as a generic pointer ``void *''. \textit{insert example code of new() here}
+Dynamic dispatch is accomplished during the default construction of a new Instance of a class.
+In Tool, there is only on type of constructor, the default one.
+One idea we borrowed from our reference book\footnote{www.cs.rit.edu/~ats/books/ooc.pdf at page 11, si jamais faudra mettre ca dans la bibliography à la fin scuse} was to have a default method be outputed called ``new'' which would take care or creating a new Instance of a struct and returning it as a generic pointer ``void *''.
+\textit{insert example code of new() here}
 
+\paragraph{Concatenation}
+The AST node \say{Plus} asked for some attention.
+The Tool language allows to apply the \say{+} operator on Int and String operands.
+\newline
+The situation, where the two operands are Int, is straightforward to emulate in C programming language.
+It's also an addition.
+\newline
+The event where the two operands are String is a little bit more tricky.
+It is necessary to allocate memory before concatenate the two string of characters.
+\begin{lstlisting}
+strcpy(malloc(strlen("+ lhsString +") + strlen(" + rhsString +") + 1)," +
+                lhsString +")," + rhsString +")"
+\end{lstlisting}
+Finally when the two operands are different, we were obliged to create two C functions:
+\newline
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void helper_reverse_plus(char str[], int len)|} and
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|char* itoa(int num)|}.
+These functions transform an integer into a string of characters and return it.
+\newline
+These two functions are written in every .c file generated by the compiler.
+\newline
 \paragraph{Method chaining}
 \break
 This problem was one, that we had not seen coming.
 \newline
 In Tool, there is the possibility to write multiple call to a method on one line.
-It works because each method returns an object. We can't directly translate it in C programming language with the model we choosed to make object oriented possible. Our ``methods'' need to have as a first argument a pointer to the struct calling, so to make a method call on a struct we would need to write : \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void * a = new(nA); ((struct A *) a)->foo(a)|}. Our variable a needs to be referenced two times, first to get the good function pointer and then as the first argument if ``foo'' need to access fields defined in A. Therefore chained method calls need intermediate variables to work correctly. 
+It works because each method returns an object.
+We can't directly translate it in C programming language with the model we choosed to make object oriented possible.
+Our ``methods'' need to have as a first argument a pointer to the struct calling,
+so to make a method call on a struct we would need to write : \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void * a = new(nA); ((struct A *) a)->foo(a)|}.
+Our variable a needs to be referenced two times, first to get the good function pointer and then as the first argument if ``foo'' need to access fields defined in A.
+Therefore chained method calls need intermediate variables to work correctly.
 To tackle this problem, we created a simple object: \say{tmpVarGen}.
 \lstset{style=customscala}
 \begin{lstlisting}
@@ -67,7 +131,7 @@ It is used to have a unique variable name. It has two methods.
 \say{getLastVar} returns the last created variable name.
 \say{getFreshVar} return a new variable name.
 \newline
-Now at each evaluation of an AST element, which is an expression, it is important first to evaluate the expressions
+Now at each evaluation of an AST node, which is an expression, it is important first to evaluate the expressions
 and assign to intermediate variables using the object \say{tmpVarGen}. Next the expression is written using
 the variables.
 \begin{lstlisting}
@@ -81,10 +145,12 @@ case Equals(lhs: ExprTree, rhs: ExprTree) =>
     lhsLastVar+" == "+rhsLastVar+";\n"
   return lhsString.append(rhsString).append(andExprResultVar)
 \end{lstlisting}
-Here it is an example with the evaluation of an expression AST element: Equals.
+Here it is an example with the evaluation of an expression AST node: Equals.
 The left-hand side and right-hand side expressions are first evaulated using the \say{cGenExpr()} method and
 are stored in intermediate variable using the \say{tmpVarGen} object.
 Afterward the equal expression as known in C: \say{lhs == rhs} is written using the intermediate variable.
 At the end we append all element together. Thus one Tool line to write an equality is
 three lines in C programming language.
 \newline
+\paragraph{Tabulation}
+% TODO faire un chapitre là-dessus?! Tu penses que c'est pertinent?!
