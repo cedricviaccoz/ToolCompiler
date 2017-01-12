@@ -72,8 +72,16 @@ and returns a corresponding \lstset{style=customc}{\lstinline[basicstyle=\small\
 which was presented in section 3.2.1 Data Type. Then the \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StructDef|}'s method
 \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|toStringRepr|} to return the structures as String.
 \newline
-Thereafter % Talk about the methods
-
+Thereafter the method manages the program's methods.
+\begin{lstlisting}
+def genMethods(ct: ClassDecl): StringBuilder =
+        (for(mt <- ct.methods)yield(cGenMethod(ct, mt))).foldLeft(new StringBuilder())((a,b) => a append b)
+\end{lstlisting}
+The method \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|cGenMethod|} traverses the AST node
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|MethodDecl|} to translate the statements and the expressions
+in C programming language. The method returns a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|}
+representing a function, that corresponds to a Tool's class method.
+\newline
 
 \paragraph{Inheritance}
 
