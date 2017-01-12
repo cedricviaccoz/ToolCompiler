@@ -52,6 +52,7 @@ This problem was one, that we had not seen coming.
 In Tool, there is the possibility to write multiple call to a method on one line.
 It works because each method returns an object. We can't directly translate it in C programming language with the model we choosed to make object oriented possible. Our ``methods'' need to have as a first argument a pointer to the struct calling, so to make a method call on a struct we would need to write : \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void * a = new(nA); ((struct A *) a)->foo(a)|}. Our variable a needs to be referenced two times, first to get the good function pointer and then as the first argument if ``foo'' need to access fields defined in A. Therefore chained method calls need intermediate variables to work correctly. 
 To tackle this problem, we created a simple object: \say{tmpVarGen}.
+\lstset{style=customscala}
 \begin{lstlisting}
 object tmpVarGen{
   private var counter = 0
