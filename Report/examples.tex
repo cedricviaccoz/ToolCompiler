@@ -4,11 +4,18 @@ The example below presents how a class and the inheritance could be depicted in 
 class Animal{
   var isAPet: Bool;
   var speed: Int;
+  def sleep(): String = {
+    return "zzz...";
+  }
 }
 
 class Dog extends Animal{
   def bark(): String = {
     return "Woof!";
+  }
+
+  override def sleep(): String = {
+    return "zzz... wouaf... zzz...";
   }
 }
 \end{lstlisting}
@@ -18,13 +25,23 @@ This Tool code will be pretty-printed in C like this:
 struct Animal{
 	int isAPet;
 	int speed;
+  char * (*sleep)(void *);
 };
 
 struct Dog{
 	int isAPet;
 	int speed;
+  char * (*sleep)(void *);
 	char * (*bark)(void *);
 };
+
+char * Animal_sleep (void * this) {
+  // some code that will be depicted in the implementation part
+}
+
+char * Dog_sleep (void * this) {
+  // some code that will be depicted in the implementation part
+}
 
 char * Dog_bark (void * this) {
   // some code that will be depicted in the implementation part

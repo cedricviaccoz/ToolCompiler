@@ -88,8 +88,82 @@ representing a function, that corresponds to a Tool's class method.
 \paragraph{Dynamic dispatch}
 Dynamic dispatch is accomplished during the default construction of a new Instance of a class.
 In Tool, there is only on type of constructor, the default one.
-One idea we borrowed from our reference book\footnote{www.cs.rit.edu/~ats/books/ooc.pdf at page 11, si jamais faudra mettre ca dans la bibliography à la fin scuse} was to have a default method be outputed called ``new'' which would take care or creating a new Instance of a struct and returning it as a generic pointer ``void *''.
-\textit{insert example code of new() here}
+One idea we borrowed from our reference book\footnote{www.cs.rit.edu/~ats/books/ooc.pdf at page 11, si jamais faudra mettre ca dans la bibliography à la fin scuse} was to have a default method be outputed called ``new'' which would take care or creating a new Instance of a struct and returning it as a generic pointer ``void *''. This function is generated dynamically for each program according to the different classes.
+\begin{lstlisting}
+void * new(int type){
+  void * object;
+  switch(type){
+    case nAnimal:
+      object = malloc(sizeof(struct Animal));
+      ((struct Animal *) object)->sleep = Animal_sleep;
+      break;
+    case nDog:
+      object = malloc(sizeof(struct Dog));
+      ((struct Dog *) object)->bark = Dog_bark;
+      ((struct Dog *) object)->sleep = Dog_sleep;
+    default:
+      return NULL;
+  }
+  return object;
+}
+\end{lstlisting}
+And according to the overriding of the methods or not, this method also takes care of setting the value of the struct's function pointers to the corresponding function. To be sure that calling {\lstinline[basicstyle=\small\ttfamily]|sleep|} on an instance of Animal will get the correct pointer, for inherited structs, we make sure they hold the same fields in the same place than their parent struct. If we look at the struct definitions of example 2, we clearly see that the function pointer {\lstinline[basicstyle=\small\ttfamily]|sleep|} is held in the same place in both structs. Therefore, if we consider this Tool code snippet :
+
+\lstset{style=customtool}
+\begin{lstlisting}
+program Sleep{
+  println(new Farm().getPet(0).sleep());
+  //prints ``zzz...''
+  println(new Farm().getPet(1).sleep());
+  //prints ``zzz... wouaf... zzz...''
+}
+
+class Farm{
+  def getPet(sel: Int): Animal = {
+    if(sel == 0){
+      return new Animal();
+    }else{
+      return new Dog();
+    }
+  }
+}
+\end{lstlisting}
+Running it will result with the sleep message of animal printed and followed by the sleep message of a dog. This is an exemple of dynamic dispatch. Using casting, then the same result can be obtained in C :
+
+\lstset{style=customc}
+\begin{lstlisting}
+int main(void){
+  void * farm0 = new(nFarm)
+  void * animal0 = ((struct Farm *)farm0)->getPet(0);
+  printf("\%s\\n", ((struct Animal *) animal1)->sleep())
+  //prints ``zzz...''  
+  void * farm1 = new(nFarm)
+  void * animal1 = ((struct Farm *)farm1)->getPet(1);
+  printf("\%s\\n", ((struct Animal *) animal1)->sleep())
+  //prints ``zzz... wouaf... zzz...''
+}
+\end{lstlisting}
+
+Casting to Animal is made in both case because {\lstinline[basicstyle=\small\ttfamily]|getPet|} returns an instance of Animal so the compiler treat the value returned to be of type ``Animal''. Even if a Dog is returned it will use the {\lstinline[basicstyle=\small\ttfamily]|sleep|} function of the dog since the pointer to {\lstinline[basicstyle=\small\ttfamily]|sleep|} in Dog's struct is in the same place as the one of Animal's struct.
+
+\paragraph{Length of Arrays}
+Another problem encountered was retrieving an array's length. In Tool, getting it is made in the same way as Java, by accessing the field {\lstinline[basicstyle=\small\ttfamily]|length|} of the array. However this cannot be translated easily in C if the array is not statically allocated. The way we treat arrays of ints in our extension is by defining them as a pointer to a value of type int. Then creating a new array of n elements is made by using calloc with n and {\lstinline[basicstyle=\small\ttfamily]|sizeof(int)|} as arguments. The pointer returned points now to a region of the memory that can hold n ints. We will call this pointer ``x''. And since our array is juste a pointer, trying the trick of {\lstinline[basicstyle=\small\ttfamily]|sizeof(x) / sizeof(int)|} to get its length will either be equal to 1 or 2 (depending on the system word size) because {\lstinline[basicstyle=\small\ttfamily]|sizeof(x)|} in this case return the size of the pointer, not the size of the memory this pointer was allocated to.\\
+To resolves this problem, we defined an helper function called {\lstinline[basicstyle=\small\ttfamily]|arrayAlloc|} printed with every program.
+
+\begin{lstlisting}
+int * arrayAlloc(int size){
+  int * smrtArray = calloc(size + 1, sizeof(int));
+  smrtArray[0] = size;
+  return (smrtArray + 1);
+}
+\end{lstlisting}
+
+What this function does is pretty simple but ingenious. The array is callocated for one more element than the size required, and then the length of this array is stocked at the first place of the callocated array. We return then the value of the pointer incremented by one. Thus, when we need to get the length of the array ``x'', we can get it from the value hold at the place ``-1'' of the pointer ``x''
+
+\begin{lstlisting}
+int * x = arrayAlloc(42);
+int xLength = *(x - 1) //xLength is equal to 42.
+\end{lstlisting}
 
 \paragraph{Concatenation}
 The AST node \say{Plus} asked for some attention.
