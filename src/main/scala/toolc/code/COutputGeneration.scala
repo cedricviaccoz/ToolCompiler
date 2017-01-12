@@ -513,7 +513,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     }else sourceName + "Tool.c"
     
     val headerFileName = outputName.dropRight(1)+"h"
-    macros.append("#include \""+headerFileName+"\"")
+    macros.append("#include \""+headerFileName+"\"\n")
      
     val headerFileCode = "#ifndef "+outputName.dropRight(2).toUpperCase()+"_H_\n#define "+outputName.dropRight(2).toUpperCase()+"_H_\n"+
                           "void * new(int type);\n\n#endif"
