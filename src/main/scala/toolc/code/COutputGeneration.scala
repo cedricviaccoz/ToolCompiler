@@ -518,17 +518,35 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         "temp = *(str+start);\n\t\t*(str+start) = *(str+end);\n\t\t*(str+end) = temp;\n\t}\n}\n\n")
     
     val helperItoaFunction: StringBuilder = new StringBuilder(
-        "char* itoa(int num) {\n\t"+
-        "int i = 0;\n\tint isNegative = 0;\n\tchar* str = malloc("+intMaxLength+");\n\n\t"+
-        "if (num == 0) {\n\t\t"+
-        "str[i] = '0';\n\t\tstr[i + 1] = '\\0';\n\t\treturn str;\n\t}\n\n\t"+
-        "if (num < 0) {\n\t\tisNegative = 1;\n\t\tnum = -num;\n\t}\n\n\t"+
-        "while (num != 0) {\n\t\tint rem = num % 10;\n\t\tstr[i++] = (rem > 9) ? (rem - 10) + 'A' : rem + '0';\n\t\tnum = num/10;\n\t}\n\n\t"+
-        "if (isNegative) {\n\t\tstr[i++] = '-';\n\t}\n\n\t"+
-        "str[i] = '\\0';\n\thelper_reverse_plus(str, i);\n\treturn str;\n}\n")
+        "char* itoa(int num) {\n"+
+        "\tint i = 0;\n"+
+        "\tint isNegative = 0;\n"+
+        "\tchar* str = malloc("+intMaxLength+");\n"+
+        "\n"+
+        "\tif (num == 0) {\n"+
+        "\t\tstr[i] = '0';\n"+
+        "\t\tstr[i + 1] = '\\0';\n"+
+        "\t\treturn str;\n"+
+        "\t}\n"+
+        "\n"+
+        "\tif (num < 0) {\n"+
+        "\t\tisNegative = 1;\n"+
+        "\t\tnum = -num;\n"+
+        "\t}\n"+
+        "\n"+
+        "\twhile (num != 0) {\n"+
+        "\t\tint rem = num % 10;\n"+
+        "\t\tstr[i++] = (rem > 9) ? (rem - 10) + 'A' : rem + '0';\n"+
+        "\t\tnum = num/10;\n"+
+        "\t}\n"+
+        "\n"+
+        "\tif (isNegative) {\n\t\tstr[i++] = '-';\n\t}\n\n\t"+
+        "str[i] = '\\0';\n\thelper_reverse_plus(str, i);\n\treturn str;\n}\n"
+    )
     
     /**
-     * Smartly allocate an array of int and keeping its length in -1 place.
+     * Smartly allocate an array of int and keeping its length in -1 place. 
+     * (Since sizeof doesnt work to compute length of an array that is a pointer)
      */
     val arrayAllocFunc: StringBuilder = new StringBuilder(
       "int * arrayAlloc(int size){\n"+
