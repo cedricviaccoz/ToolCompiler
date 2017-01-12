@@ -47,15 +47,13 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     macros.append("#define INT_MAX_LENGTH 12\n")
     //must not forget to add a corresponding macro "#define n<className>" for every new class generated
     val intMaxLength = "INT_MAX_LENGTH"
-    //[BEGIN]
+
     //add number corresponding to each classes
     var numberClass = 0
     while(numberClass < prog.classes.size) {
       macros.append("#define n"+ prog.classes(numberClass).id.value +" "+ numberClass +"\n")
       numberClass += 1
-    }
-    //[END]
-    
+    }    
     
     def genMethods(ct: ClassDecl): StringBuilder = 
         (for(mt <- ct.methods)yield(cGenMethod(ct, mt))).foldLeft(new StringBuilder())((a,b) => a append b)

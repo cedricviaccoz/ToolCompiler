@@ -1,51 +1,50 @@
 The example below presents how a class and the inheritance could be depicted in C programming language.
 \lstset{style=customtool}
 \begin{lstlisting}
-class Rectangle{
-  var width: Int;
-  var height: Int;
-
-  def area(): Int = {
-    return width * height;
-  }
+class Animal{
+  var isAPet: Bool;
+  var speed: Int;
 }
 
-class Square extends Rectangle{
-  var side: Int;
+class Dog extends Animal{
+  def bark(): String = {
+    return "Woof!";
+  }
 }
 \end{lstlisting}
 This Tool code will be pretty-printed in C like this:
 \lstset{style=customc}
 \begin{lstlisting}
-struct Rectangle{
-  int width;
-  int heigth;
-  int (*area)(struct void*);
-}
+struct Animal{
+	int isAPet;
+	int speed;
+};
 
-struct Square{
-  int width;
-  int heigth;
-  int side;
-  int (*area)(struct void*)
-}
+struct Dog{
+	int isAPet;
+	int speed;
+	char * (*bark)(void *);
+};
 
-  int Rectangle_area(struct Rectangle* this) {
-    return this->width * this->height;
-  }
+char * Dog_bark (void * this) {
+  // some code that will be depicted in the implementation part
+}
 \end{lstlisting}
 The class are represented in C by a structure. The variables of the class
 are members of the structure. They are declared in the same fashion.
+\newline
+The variables of the class \say{Animal}, they also find themselves in the \say{Dog} structure
+because the class \say{Dog} inherits from the class \say{Animal}.
 \newline
 Contrariwise the method of the class is declared outside of the structure.
 In C, a structure can't have a function declaration as a member. The function shall
 be declared outside. But the structure has a pointer to the function.
 \newline
 The function is declared with the name of the class as prefix followed by an underscore.
-Thus the belonging to the \say{Rectangle} class is suggested.
+Thus the belonging to the \say{Dog} class is suggested.
 \newline
 Therefore this is how the C code mimics the behavior of an object-oriented class.
 \newline
-There exists other dilemma like inheritance, dynamic dispatch,\ldots, which be discussed
+There exists other dilemma like method chaining, dynamic dispatch,\ldots, which be discussed
 in the implementation section.
 \newline
