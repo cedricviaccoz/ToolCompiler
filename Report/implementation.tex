@@ -56,8 +56,7 @@ It includes the headers \lstset{style=customc}{\lstinline[basicstyle=\small\ttfa
 It contains \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|#define INT_MAX_LENGTH 12|}, which is useful
 in order to have correct Int to string of characters concatenation.
 It also encloses the definition of default constructor for every classes of the program.
-Per example for the program used in section 2.Examples, it would be:
-\begin{lstlisting}
+\begin{lstlisting}[caption={In the case of the example used in section 2. Examples}, captionpos=b]
 #define nAnimal 0
 #define nDog 1
 \end{lstlisting}
@@ -79,10 +78,75 @@ def genMethods(ct: ClassDecl): StringBuilder =
 \end{lstlisting}
 The method \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|cGenMethod|} traverses the AST node
 \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|MethodDecl|} to translate the statements and the expressions
-in C programming language. The method returns a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|}
+in C programming language, using the methods \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|cGenStats|} and
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|cGenExpr|} like in the Code Generation lab.
+The method returns a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|}
 representing a function, that corresponds to a Tool's class method.
 \newline
+Then the Tool's main method is translated into C programming language.
+\begin{lstlisting}
+def genMainMethod(main: MainObject): StringBuilder = {
+  val mainMethod = new StringBuilder("int main(void){\n")
+  main.stats.foldLeft(mainMethod)((sB, stmt) => sB append(cGenStat(stmt)(1, None)))
+  return mainMethod.append("\treturn 0;\n}")
+    }
+\end{lstlisting}
+The \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|genMainMethod|} method receives
+as parameter the AST node \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|MainObject|}.
+It is converted as the \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|main|} function in C programming language.
+\begin{lstlisting}
+int main(void){
+  return 0;
+}
+\end{lstlisting}
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|MainObject|} contains
+a list of \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StatTree|}.
+Each \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StatTree|} is evaluated
+by the method \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|cGenStat|} and
+the returned \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder(s)|}
+are the body of the C \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|main|} function.
+\newline
+In the \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|run|} method, there exists
+an object
+\newline
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|defaultConstructor|}.
+It represents the construction of the default constructor. The function is called
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|new|}.
+The function takes as parameter an integer. It is one of the defined integer for each Tool's class,
+that we have seen before. % TODO faudrait-il les afficher de nouveau??
+Subsequently a method \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|addStructConstructor|}
+takes care of adding a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|case|} element
+to the \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|new|} function for a correct
+initialization of a Tool's object in C programming language.
+\begin{lstlisting}[caption={In the case of the example used in the section 2. Examples}, captionpos=b]
+void * new(int type){
+  void * object;
+    switch(type){
+      case nAnimal:
+        object = malloc(sizeof(struct Animal));
+        break;
 
+      case nDog:
+        object = malloc(sizeof(struct Dog));
+        ((struct Dog*) object)->bark = Dog_bark;
+        break;
+      default:
+        return NULL;
+    }
+  return object;
+}
+\end{lstlisting}
+b
+\newline
+At the end, the functions
+\newline
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void helper_reverse_plus(char str[], int len)|},
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|char* itoa(int num)|} and
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|int * arrayAlloc(int size)|} are constructed.
+Their usefulness will be explained in the subsections to come.
+\newline
+Finally all these snippet of C code are concatenated and written in a .c file.
+\newline
 \paragraph{Inheritance}
 
 \paragraph{Dynamic dispatch}
