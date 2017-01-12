@@ -1,20 +1,20 @@
 This is a very important section, you explain to us how you made it work.
 
 \subsection{Theoretical Background}
-% TODO tu penses y mettre quelque chose?
+The only background needed for this extension is knowing the tool's AST and the C language. However since we are trying to emulate an object-oriented language into one that is not, the book ``Object-oriented programming in ANSCI-C''\footnote{https://www.cs.rit.edu/~ats/books/ooc.pdf} by Axel Schreiner has been useful for some concepts and it will be referenced throughout this report.
 
 \subsection{Implementation Details}
 Two files were created to implement this project.
 \subsubsection{Data Type}
 The first one is \say{CDataType.scala}. It contains a class that depicts the C's structure.
+\lstset{style=customscala}
 \begin{lstlisting}
   class StructDef(val name: String,
     val membersList: ListBuffer[StructMember])
 \end{lstlisting}
- A trait \say{StructMember} is extended by two class to implement the two sort of structure's members,
- which are a variable or a pointer to a function (as explained in section 2. Examples).
- Without forgetting to define a class \say{FunctionPtr}. It defines the fact that each function have as first parameter
- a generic pointer to the calling structure.
+ A trait \say{StructMember} is extended by two classes to implement the two kinds of structure's members,
+ which are a variable or a pointer to a function (as explained in section 2. Examples). The pointer to a function holds two fields, one for an internal representation of a C function pointer (the class \say{FunctionPtr}) , and one for the AST version of the method declaration that should be linked to the pointer. 
+
  \begin{lstlisting}
 class StructVar(val name: String,
   val tpe: CType) extends StructMember {
@@ -43,12 +43,14 @@ The final is a .h and .c, which encloses all the StringBuilders concatened.
 \break
 
 \paragraph{Dynamic dispatch}
+Dynamic dispatch is accomplished during the default construction of a new Instance of a class. In tool, there is only on type of constructor, the default one. One idea we borrowed from our reference book\footnote{www.cs.rit.edu/~ats/books/ooc.pdf at page 11, si jamais faudra mettre ca dans la bibliography à la fin scuse} was to have a default method be outputed called ``new'' which would take care or creating a new Instance of a struct and returning it as a generic pointer ``void *''. \textit{insert example code of new() here}
+
 \paragraph{Method chaining}
 \break
 This problem was one, that we had not seen coming.
 \newline
 In Tool, there is the possibility to write multiple call to a method on one line.
-It works because each method returns an object. We can't directly translate it in C programming language.
+It works because each method returns an object. We can't directly translate it in C programming language with the model we choosed to make object oriented possible. Our ``methods'' need to have as a first argument a pointer to the struct calling, so to make a method call on a struct we would need to write : \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void * a = new(nA); ((struct A *) a)->foo(a)|}. Our variable a needs to be referenced two times, first to get the good function pointer and then as the first argument if ``foo'' need to access fields defined in A. Therefore chained method calls need intermediate variables to work correctly. 
 To tackle this problem, we created a simple object: \say{tmpVarGen}.
 \begin{lstlisting}
 object tmpVarGen{

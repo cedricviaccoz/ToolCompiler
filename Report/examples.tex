@@ -1,4 +1,5 @@
-The example below presents how a class and the inheritance are depicted in C programming language.
+The example below presents how a class and the inheritance could be depicted in C programming language.
+\lstset{style=customtool}
 \begin{lstlisting}
 class Rectangle{
   var width: Int;
@@ -9,11 +10,12 @@ class Rectangle{
   }
 }
 
-class Square extends{
+class Square extends Rectangle{
   var side: Int;
 }
 \end{lstlisting}
 This Tool code will be pretty-printed in C like this:
+\lstset{style=customc}
 \begin{lstlisting}
 struct Rectangle{
   int width;

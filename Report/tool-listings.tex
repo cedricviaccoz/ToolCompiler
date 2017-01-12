@@ -1,6 +1,15 @@
 %% To import in the preambule
 %\usepackage{listings}
 
+\definecolor{dkgreen}{rgb}{0.0,0.4,0.0} % Comment color
+\definecolor{gold}{RGB}{252,161,64} %String color
+%\definecolor{gray}{RGB}{140,140,140} %left margin numberline color
+\definecolor{blue}{RGB}{68,136,165} %Tool keyword color
+\definecolor{purple}{RGB}{183,57,153} %null color
+\definecolor{rose}{RGB}{230, 50,108} %scala keyword color
+\definecolor{dkblue}{RGB}{90,150,180} %C keyword color
+
+
 % "define" Tool
 \lstdefinelanguage{tool}{
   alsoletter={@},
@@ -12,6 +21,97 @@ postcondition, precondition, invariant, constraint, assert, forAll, in, _, retur
   morecomment=[s]{/*}{*/},
   morestring=[b]"
 }
+
+\lstdefinestyle{customtool}
+{ %Formatting for code in appendix
+  language=Tool,
+  %%
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\footnotesize\ttfamily},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{gold},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3,
+  %numberdisplaying
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  stepnumber=1,
+  firstnumber=1,
+  numberfirstline=true
+}
+
+\lstdefinestyle{customc}
+{ %Formatting for code in appendix
+  language=C,
+  %%
+  basicstyle=\footnotesize\ttfamily,
+  %upquote=true,
+  aboveskip=3mm,
+  belowskip=3mm,
+  columns=flexible,
+  showstringspaces=false,
+  breaklines=true,
+  showtabs=false,
+  showspaces=false,
+  showstringspaces=false,
+  identifierstyle=\ttfamily,
+  keywordstyle=\color[rgb]{0,0,1},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color[rgb]{0.627,0.126,0.941},
+  %numberdisplaying
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  stepnumber=1,
+  firstnumber=1,
+  numberfirstline=true
+}
+
+\lstdefinestyle{customscala}
+{ %Formatting for code in appendix
+  morekeywords={ abstract,case,catch,
+    char,class,
+    def,else,extends,final,
+    if,import,
+    match,module,new,null,object,
+    override,package,private,protected,
+    public,return,super,this,throw,
+    trait,try,type,val,var,with,implicit,
+    macro,sealed,for
+  },
+  sensitive,
+  morecomment=[l]//,
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  %%
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\footnotesize\ttfamily},
+  keywordstyle=\color{purple},
+  keywordstyle=[2]\color{dkblue},
+  keywords=[2]{=>,<-,<\%,<:,>:,\#,@},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{gold},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3,
+  %numberdisplaying
+  numberstyle={\tiny\color{gray}},
+  numbers=left,
+  stepnumber=1,
+  firstnumber=1,
+  numberfirstline=true
+}
+
+
+
 
 \newcommand{\codestyle}{\small\sffamily}
 
