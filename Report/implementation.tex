@@ -1,8 +1,8 @@
 \subsection{Theoretical Background}
 The only background needed for this extension is knowing the tool's AST and the C language.
 However since we are trying to emulate an object-oriented language into one that is not,
-the book ``Object-oriented programming in ANSCI-C''\footnote{https://www.cs.rit.edu/~ats/books/ooc.pdf}
-by Axel Schreiner has been useful for some concepts and it will be referenced throughout this report.
+the book ``Object-oriented programming with ANSCI-C''\cite{oopBook}
+has been useful for some concepts and it will be referenced throughout this report.
 
 \subsection{Implementation Details}
 Two files were created to implement this project.
@@ -253,7 +253,9 @@ It works because each method returns an object.
 We can't directly translate it in C programming language with the model we choosed to make object oriented possible.
 Our ``methods'' need to have as a first argument a pointer to the struct calling,
 so to make a method call on a struct we would need to write : \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void * a = new(nA); ((struct A *) a)->foo(a)|}.
-Our variable a needs to be referenced two times, first to get the good function pointer and then as the first argument if ``foo'' need to access fields defined in A.
+Our variable \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|a|} needs to be referenced two times,
+first to get the good function pointer and then as the first argument if \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|foo|}
+needs to access fields defined in A.
 Therefore chained method calls need intermediate variables to work correctly.
 To tackle this problem, we created a simple object: \say{tmpVarGen}.
 \lstset{style=customscala}
@@ -279,7 +281,7 @@ It is used to have a unique variable name. It has two methods.
 \newline
 Now at each evaluation of an AST node, which is an expression, it is important first to evaluate the expressions
 and assign to intermediate variables using the object \say{tmpVarGen}. Next the expression is written using
-the variables.
+the intermediate variables.
 \begin{lstlisting}
 case Equals(lhs: ExprTree, rhs: ExprTree) =>
   val lhsString = cGenExpr(lhs)
@@ -297,4 +299,7 @@ are stored in intermediate variable using the \say{tmpVarGen} object.
 Afterward the equal expression as known in C: \say{lhs == rhs} is written using the intermediate variable.
 At the end we append all element together. Thus one Tool line to write an equality is
 three lines in C programming language.
+\newline
+The same procedure has been used for all other expressions and also for statements
+because they contain expression(s).
 \newline
