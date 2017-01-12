@@ -47,14 +47,12 @@ object CDataType {
     def toStringRepr = 
       retType.toString+" (*"+name+")("+
        args.foldLeft(new StringBuilder(CStruct.toString()+", "))((sB, arg) => sB append (arg.toString+", ")).dropRight(2)+
-      ");"
-                      
+      ");"                   
   }
-      
+
   /**
    * Type referring to C code 
-   */
-    
+   */    
   sealed abstract class CType {
     def toString: String
   }

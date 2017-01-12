@@ -30,9 +30,6 @@ object COutputGeneration extends Pipeline[Program, Unit] {
   }
 
   
-  //Note : also maybe it would be good to have a corresponding ".h" file, depending how the ast is ordered,
-  //       some structs and method are not visible to the other one if we print it directly in order.
-  //Note : in the context above, maybe typedef the struct ? 
   def run(ctx: Context)(prog: Program): Unit = {
     import ctx.reporter._
     
@@ -53,9 +50,8 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     val macros = new StringBuilder()
     //this macro needs to be defined by default in order to have correct Int to string concatenation.
-    macros.append("#define INT_MAX_LENGTH 12\n")
-    //must not forget to add a corresponding macro "#define n<className>" for every new class generated
     val intMaxLength = "INT_MAX_LENGTH"
+    macros.append("#define "+intMaxLength+" 12\n")
 
     //add number corresponding to each classes
     var numberClass = 0
@@ -98,7 +94,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
                 //in case of overrides, we need to update our list of members with the correct 
                 //method declaration associated with its function pointer
                 val toUpdate = genStructFunctPtr(mt)
-                val placeToUpdate = parentMembers.indexWhere { m => m.getName equals mt.id.value }
+                val placeToUpdate = parentMembers.indexWhere { m => (m.getName equals mt.id.value) && (m match{case _ :StructFunctionPtr => true case _ => false})}
                 parentMembers.update(placeToUpdate, toUpdate)
               case None => parentMembers append genStructFunctPtr(mt)
             }
@@ -168,12 +164,10 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         val base: StringBuilder = new StringBuilder(caseTabLvl+"case n"+ str.name +":\n"+othrTabLvl+"object = malloc(sizeof(struct "+ str.name +"));")
         
         def helperAcc(member: StructMember): Unit = member match {
-          case m: StructVar =>  
-            //J'ai pas vraiment compris pourquoi tu veux initialiser des variables ici jeune ami nanchen. 
-            //base.append("\n\t\t((struct "+ str.name +"*) object)->"+ m.getName +" = "+ m.getName +";") 
           case m: StructFunctionPtr => 
             base.append("\n"+othrTabLvl+"((struct "+ str.name +"*) object)->"+ m.getName +" = "+ 
                                         genCMethName(m.mtDcl.getSymbol.classSymbol.name, m.mtDcl.id)+";") 
+          case _ =>
         }
         
         val el = str.membersList map helperAcc
@@ -205,11 +199,6 @@ object COutputGeneration extends Pipeline[Program, Unit] {
       meth.append("\treturn "+retExprVar  +";") 
       return meth.append("\n}\n")
     }
-    
-    /*
-     * Helper method which return the number given as argument as a chain of char tabulation.
-     */
-    def genTabulation(indentLevel: Int):String = (0 until indentLevel).foldLeft(new StringBuilder)((Sb, i) => Sb append tab).toString
     
     // Generates code for a statement
     def cGenStat(statement: StatTree)(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
@@ -293,40 +282,41 @@ object COutputGeneration extends Pipeline[Program, Unit] {
       }
     }
     
-    //Helper function that construct the tmp variable satement holding an operator expression result. This serves to avoid repeating code.
-    def operatorExprBuilder(tpe: CType, lhs: ExprTree, rhs: ExprTree, operator: String, endOfLine: String, varName: Option[String])(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
-      val lhsString = cGenExpr(lhs)
-      val lhsLastVar = tmpVarGen.getLastVar
-      val rhsString = cGenExpr(rhs)
-      val rhsLastVar =  tmpVarGen.getLastVar
-      return lhsString.append(rhsString).append(genTabulation(indentLvl)+tpe.toString+" "+tmpVarGen.getFreshVar(varName)+" = "+lhsLastVar+operator+rhsLastVar+endOfLine+";\n")
-    }
-    
-    //Same as above but when only one action is required on an expression.
-    def singleExprBuilder(tpe: CType, expr: ExprTree, action: String, endOfLine: String, varName: Option[String])(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
-      val exprString = cGenExpr(expr)
-      val exprLastVar = tmpVarGen.getLastVar
-      return exprString.append(genTabulation(indentLvl)+tpe.toString+" "+tmpVarGen.getFreshVar(varName)+" = "+action+exprLastVar+endOfLine+";\n")
-    }
-    
     // Generates code for an expression
     def cGenExpr(expr: ExprTree)(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
       expr match {
         case And(lhs, rhs) =>
+          operatorExprBuilder(CInt, lhs, rhs, " && ", "", Some("And"))
+          /*val tabLvl = genTabulation(indentLvl)
           val lhsString = cGenExpr(lhs)
           val lhsLastVar = tmpVarGen.getLastVar
-          val rhsString = cGenExpr(rhs)
+          
+          val resultVar = tmpVarGen.getFreshVar(Some("AndInterm")) 
+          val defaultAssign = tabLvl+"int "+resultVar+" = "+lhsLastVar+";\n"
+          
+          val shortCircFalse = genTabulation(indentLvl)+"if("+lhsLastVar+"){\n"
+          val rhsString = cGenExpr(rhs)(indentLvl+1, mt)
           val rhsLastVar = tmpVarGen.getLastVar
-          val andExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar(Some("And"))+" = "+lhsLastVar+" && "+rhsLastVar+";\n"
-          return lhsString.append(rhsString).append(andExprResultVar)
+          val andStmt = tabLvl+tab+"int "+resultVar+" = "+rhsLastVar+";\n"+tabLvl+"}\n"
+          val andExprResultVar = tabLvl+CInt.toString()+" "+tmpVarGen.getFreshVar(Some("And"))+" = "+resultVar+";\n"
+          return lhsString.append(defaultAssign).append(shortCircFalse).append(rhsString).append(andStmt).append(andExprResultVar)*/
           
         case Or(lhs, rhs) =>
+          operatorExprBuilder(CInt, lhs, rhs, " || ", "", Some("And"))
+          /*val tabLvl = genTabulation(indentLvl)
           val lhsString = cGenExpr(lhs)
           val lhsLastVar = tmpVarGen.getLastVar
-          val rhsString = cGenExpr(rhs)
+          
+          val resultVar = tmpVarGen.getFreshVar(Some("OrInterm")) 
+          val defaultAssign = tabLvl+"int "+resultVar+" = "+lhsLastVar+";\n"
+          
+          val shortCircTrue = genTabulation(indentLvl)+"if(!"+lhsLastVar+"){\n"
+          val rhsString = cGenExpr(rhs)(indentLvl+1, mt)
           val rhsLastVar = tmpVarGen.getLastVar
-          val orExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar(Some("Or"))+" = "+lhsLastVar+" || "+rhsLastVar+";\n"
-          return lhsString.append(rhsString).append(orExprResultVar)
+          val orStmt = tabLvl+tab+"int "+resultVar+" = "+rhsLastVar+";\n"+tabLvl+"}\n"
+          val orExprResultVar = tabLvl+CInt.toString()+" "+tmpVarGen.getFreshVar(Some("Or"))+" = "+resultVar+";\n"
+          return lhsString.append(defaultAssign).append(shortCircTrue).append(rhsString).append(orStmt).append(orExprResultVar)*/
+          
           
         case Not(expr: ExprTree) =>
           singleExprBuilder(CInt, expr, "!", "", Some("Not"))
@@ -448,6 +438,30 @@ object COutputGeneration extends Pipeline[Program, Unit] {
       }
     }
     
+    /** Utilitary/Helper methods **/
+    
+    //Helper function that construct the tmp variable satement holding an operator expression result. This serves to avoid repeating code.
+    def operatorExprBuilder(tpe: CType, lhs: ExprTree, rhs: ExprTree, operator: String, endOfLine: String, varName: Option[String])(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
+      val lhsString = cGenExpr(lhs)
+      val lhsLastVar = tmpVarGen.getLastVar
+      val rhsString = cGenExpr(rhs)
+      val rhsLastVar =  tmpVarGen.getLastVar
+      return lhsString.append(rhsString).append(genTabulation(indentLvl)+tpe.toString+" "+tmpVarGen.getFreshVar(varName)+" = "+lhsLastVar+operator+rhsLastVar+endOfLine+";\n")
+    }
+    
+    //Same as above but when only one action is required on an expression.
+    def singleExprBuilder(tpe: CType, expr: ExprTree, action: String, endOfLine: String, varName: Option[String])(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
+      val exprString = cGenExpr(expr)
+      val exprLastVar = tmpVarGen.getLastVar
+      return exprString.append(genTabulation(indentLvl)+tpe.toString+" "+tmpVarGen.getFreshVar(varName)+" = "+action+exprLastVar+endOfLine+";\n")
+    }
+    
+    /*
+     * Helper method which return the number given as argument as a chain of char tabulation.
+     */
+    def genTabulation(indentLevel: Int):String = (0 until indentLevel).foldLeft(new StringBuilder)((Sb, i) => Sb append tab).toString
+    
+   
     /**
      * Utilitary function that according to the id given as an argument,
      * will take care or returning it as simply a variable if the id refer a method
@@ -509,11 +523,19 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     
     // Two helper functions for the concatenation of a string of characters and an int
     val helperReverseFunction: StringBuilder = new StringBuilder(
-        "\n\n\n// helper functions for the concatenation of a string of characters and an int:\n\n"+
-        "void helper_reverse_plus(char str[], int len) {\n\t"+
-        "int start;\n\tint end;\n\tchar temp;\n\t"+
-        "for(start = 0, end = len-1; start < end; start++, end--) {\n\t\t"+
-        "temp = *(str+start);\n\t\t*(str+start) = *(str+end);\n\t\t*(str+end) = temp;\n\t}\n}\n\n")
+        "\n\n// helper functions for the concatenation of a string of characters and an int:\n"+
+        "void helper_reverse_plus(char str[], int len) {\n"+
+        "\tint start;\n"+
+        "\tint end;\n"+
+        "\tchar temp;\n"+
+        "\tfor(start = 0, end = len-1; start < end; start++, end--) {\n"+
+        "\t\ttemp = *(str+start);\n"+
+        "\t\t*(str+start) = *(str+end);\n"+
+        "\t\t*(str+end) = temp;\n"+
+        "\t}\n"+
+        "}"+
+        "\n"
+    )
     
     val helperItoaFunction: StringBuilder = new StringBuilder(
         "char* itoa(int num) {\n"+
@@ -538,12 +560,19 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         "\t\tnum = num/10;\n"+
         "\t}\n"+
         "\n"+
-        "\tif (isNegative) {\n\t\tstr[i++] = '-';\n\t}\n\n\t"+
-        "str[i] = '\\0';\n\thelper_reverse_plus(str, i);\n\treturn str;\n}\n"
-    )
+        "\tif (isNegative) {\n"+
+        "\t\tstr[i++] = '-';\n"+
+        "\t}\n"+
+        "\n"+
+        "\tstr[i] = '\\0';\n"+
+        "\thelper_reverse_plus(str, i);\n"+
+        "\treturn str;\n"+
+        "}"+
+        "\n"
+     )
     
     /**
-     * Smartly allocate an array of int and keeping its length in -1 place. 
+     * Smartly allocate an array of int and keeps its length in -1 place. 
      * (Since sizeof doesnt work to compute length of an array that is a pointer)
      */
     val arrayAllocFunc: StringBuilder = new StringBuilder(
@@ -551,23 +580,26 @@ object COutputGeneration extends Pipeline[Program, Unit] {
       "\tint * smrtArray = calloc(size + 1, sizeof(int));\n"+
       "\tsmrtArray[0] = size;\n"+
       "\treturn (smrtArray + 1);\n"+
-      "}\n"
+      "}"+
+      "\n"
     )
     
     val CProgram: String = new StringBuilder(stdLibImports)
                             .append(macros+"\n")
                             .append(structs+"\n")
                             .append(helperReverseFunction)
-                            .append(arrayAllocFunc)
                             .append(helperItoaFunction)
+                            .append(arrayAllocFunc)
                             .append(methods+"\n")
                             .append(defaultConstructor.complete()+"\n")
                             .append(cMainMethod).toString
       
     new PrintWriter(outputName) { write(CProgram); close }
     new PrintWriter(headerFileName) { write(headerFileCode); close}
-
+  
+    /**
+     * then on a terminal just execute "gcc -o toolCProg <NameOfYourFileWoutTool>Tool.c" 
+     * and then "./toolCProg" and tadam ! you have your tool program produced in C code working just as it worked on the JVM !
+     */
   }
-
 }
-
