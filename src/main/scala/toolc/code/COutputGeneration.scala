@@ -11,13 +11,22 @@ import scala.collection.mutable.ListBuffer
 
 object COutputGeneration extends Pipeline[Program, Unit] {
   
+  /** 
+   *  take care of giving uniquely named intermediate variables
+   */
   object tmpVarGen{
     private var counter = 0
-    def getFreshVar: String = {
+    private var lastSuffix = ""
+    def getFreshVar(suffix: Option[String]): String = {
       counter += 1
-      return "tmp"+counter
+      val sffx = suffix match{
+        case Some(s) => s
+        case None => ""
+      }
+      lastSuffix = sffx
+      return "tmp"+sffx+counter
     }
-    def getLastVar: String = "tmp"+counter
+    def getLastVar: String = "tmp"+lastSuffix+counter
   }
 
   
@@ -285,7 +294,23 @@ object COutputGeneration extends Pipeline[Program, Unit] {
         case _ => sys.error("Unknown Statement evaluation at compilation time.")
       }
     }
-
+    
+    //Helper function that construct the tmp variable satement holding an operator expression result. This serves to avoid repeating code.
+    def operatorExprBuilder(tpe: CType, lhs: ExprTree, rhs: ExprTree, operator: String, endOfLine: String, varName: Option[String])(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
+      val lhsString = cGenExpr(lhs)
+      val lhsLastVar = tmpVarGen.getLastVar
+      val rhsString = cGenExpr(rhs)
+      val rhsLastVar =  tmpVarGen.getLastVar
+      return lhsString.append(rhsString).append(genTabulation(indentLvl)+tpe.toString+" "+tmpVarGen.getFreshVar(varName)+" = "+lhsLastVar+operator+rhsLastVar+endOfLine+";\n")
+    }
+    
+    //Same as above but when only one action is required on an expression.
+    def singleExprBuilder(tpe: CType, expr: ExprTree, action: String, endOfLine: String, varName: Option[String])(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
+      val exprString = cGenExpr(expr)
+      val exprLastVar = tmpVarGen.getLastVar
+      return exprString.append(genTabulation(indentLvl)+tpe.toString+" "+tmpVarGen.getFreshVar(varName)+" = "+action+exprLastVar+endOfLine+";\n")
+    }
+    
     // Generates code for an expression
     def cGenExpr(expr: ExprTree)(implicit indentLvl: Int, mt: Option[MethodDecl]): StringBuilder = {
       expr match {
@@ -294,7 +319,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           val lhsLastVar = tmpVarGen.getLastVar
           val rhsString = cGenExpr(rhs)
           val rhsLastVar = tmpVarGen.getLastVar
-          val andExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" && "+rhsLastVar+";\n"
+          val andExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar(Some("And"))+" = "+lhsLastVar+" && "+rhsLastVar+";\n"
           return lhsString.append(rhsString).append(andExprResultVar)
           
         case Or(lhs, rhs) =>
@@ -302,25 +327,17 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           val lhsLastVar = tmpVarGen.getLastVar
           val rhsString = cGenExpr(rhs)
           val rhsLastVar = tmpVarGen.getLastVar
-          val orExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" || "+rhsLastVar+";\n"
+          val orExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar(Some("Or"))+" = "+lhsLastVar+" || "+rhsLastVar+";\n"
           return lhsString.append(rhsString).append(orExprResultVar)
           
         case Not(expr: ExprTree) =>
-          val exprString = cGenExpr(expr)
-          val exprLastVar = tmpVarGen.getLastVar
-          val notExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = !"+exprLastVar+";\n"
-          return exprString.append(notExprResultVar)
+          singleExprBuilder(CInt, expr, "!", "", Some("Not"))
 
         // Arithmetic operators (Plus works on any combination of Int/String)
         case Plus(lhs: ExprTree, rhs: ExprTree) => (lhs.getType, rhs.getType) match {
           case (TInt, TInt) =>
-            val lhsString = cGenExpr(lhs)
-            val lhsLastVar = tmpVarGen.getLastVar
-            val rhsString = cGenExpr(rhs)
-            val rhsLastVar = tmpVarGen.getLastVar
-            val plusExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" + "+rhsLastVar+";\n"
-            return lhsString.append(rhsString).append(plusExprResultVar)
-            
+            operatorExprBuilder(CInt, lhs, rhs, " + ", "", Some("Plus"))
+                      
           case (TInt, TString) =>
             val lhsString = cGenExpr(lhs)
             val lhsLastVar = tmpVarGen.getLastVar
@@ -329,7 +346,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
             
             val concat = "strcat(strcpy(malloc(strlen("+ lhsLastVar +") + strlen(itoa(" + rhsLastVar +")) + 1), itoa(" +
                 lhsLastVar +"))," + rhsLastVar +")"
-            val plusExprResultVar = genTabulation(indentLvl)+CString.toString()+" "+tmpVarGen.getFreshVar+" = "+concat+";\n"
+            val plusExprResultVar = genTabulation(indentLvl)+CString.toString()+" "+tmpVarGen.getFreshVar(Some("CatIS"))+" = "+concat+";\n"
             return lhsString.append(rhsString).append(plusExprResultVar)
             
           case (TString, TInt) => 
@@ -340,7 +357,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
             
             val concat = "strcat(strcpy(malloc(strlen("+ lhsLastVar +") + strlen(itoa("+ rhsLastVar +")) + 1), "+ 
                 lhsLastVar +"), itoa("+ rhsLastVar +"))"
-            val plusExprResultVar = genTabulation(indentLvl)+CString.toString()+" "+tmpVarGen.getFreshVar+" = "+concat+";\n"
+            val plusExprResultVar = genTabulation(indentLvl)+CString.toString()+" "+tmpVarGen.getFreshVar(Some("CatSI"))+" = "+concat+";\n"
             return lhsString.append(rhsString).append(plusExprResultVar)
             
           case (TString, TString) =>
@@ -351,77 +368,41 @@ object COutputGeneration extends Pipeline[Program, Unit] {
             
             val concat = "strcat(strcpy(malloc(strlen("+ lhsLastVar +") + strlen(" + rhsLastVar +") + 1)," +
                 lhsLastVar +")," + rhsLastVar +")"
-            val plusExprResultVar = genTabulation(indentLvl)+CString.toString()+" "+tmpVarGen.getFreshVar+" = "+concat+";\n"
+            val plusExprResultVar = genTabulation(indentLvl)+CString.toString()+" "+tmpVarGen.getFreshVar(Some("CatSS"))+" = "+concat+";\n"
             return lhsString.append(rhsString).append(plusExprResultVar)
                     
           case _                  => sys.error("addition between two incompatible types at code generation !")
         }
         
         case Minus(lhs: ExprTree, rhs: ExprTree) =>
-          val lhsString = cGenExpr(lhs)
-          val lhsLastVar = tmpVarGen.getLastVar
-          val rhsString = cGenExpr(rhs)
-          val rhsLastVar = tmpVarGen.getLastVar
-          val minusExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" - "+rhsLastVar+";\n"
-          return lhsString.append(rhsString).append(minusExprResultVar)
+            operatorExprBuilder(CInt, lhs, rhs, " - ", "", Some("Min"))
           
         case Times(lhs: ExprTree, rhs: ExprTree) =>
-          val lhsString = cGenExpr(lhs)
-          val lhsLastVar = tmpVarGen.getLastVar
-          val rhsString = cGenExpr(rhs)
-          val rhsLastVar = tmpVarGen.getLastVar
-          val timesExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" * "+rhsLastVar+";\n"
-          return lhsString.append(rhsString).append(timesExprResultVar)
+            operatorExprBuilder(CInt, lhs, rhs, " * ", "", Some("Tim"))
           
         case Div(lhs: ExprTree, rhs: ExprTree) =>
-          val lhsString = cGenExpr(lhs)
-          val lhsLastVar = tmpVarGen.getLastVar
-          val rhsString = cGenExpr(rhs)
-          val rhsLastVar = tmpVarGen.getLastVar
-          val divExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" / "+rhsLastVar+";\n"
-          return lhsString.append(rhsString).append(divExprResultVar)
+            operatorExprBuilder(CInt, lhs, rhs, " / ", "", Some("Div"))
           
         case LessThan(lhs: ExprTree, rhs: ExprTree) =>
-          val lhsString = cGenExpr(lhs)
-          val lhsLastVar = tmpVarGen.getLastVar
-          val rhsString = cGenExpr(rhs)
-          val rhsLastVar = tmpVarGen.getLastVar
-          val ltExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" < "+rhsLastVar+";\n"
-          return lhsString.append(rhsString).append(ltExprResultVar)
+            operatorExprBuilder(CInt, lhs, rhs, " < ", "", Some("Lt"))
 
         // Equality
         case Equals(lhs: ExprTree, rhs: ExprTree) =>
-          val lhsString = cGenExpr(lhs)
-          val lhsLastVar = tmpVarGen.getLastVar
-          val rhsString = cGenExpr(rhs)
-          val rhsLastVar = tmpVarGen.getLastVar
-          val andExprResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+lhsLastVar+" == "+rhsLastVar+";\n"
-          return lhsString.append(rhsString).append(andExprResultVar)
+            operatorExprBuilder(CInt, lhs, rhs, " == ", "", Some("Eq"))
           
         // Array expressions
         case ArrayRead(arr: ExprTree, index: ExprTree) =>
-          val arrayString = cGenExpr(arr)
-          val arrayLastVar = tmpVarGen.getLastVar
-          val indexString = cGenExpr(index)
-          val indexLastVar = tmpVarGen.getLastVar
-          val arrayReadResultVar = genTabulation(indentLvl)+CInt.toString()+" "+tmpVarGen.getFreshVar+" = "+arrayLastVar+"["+indexLastVar+"];\n"
-          return arrayString.append(indexString).append(arrayReadResultVar)
+           operatorExprBuilder(CInt, arr, index, "[", "]", Some("ArrRd"))
           
         case ArrayLength(arr: ExprTree) =>
-          val arrayString = cGenExpr(arr)
-          val arrayLastVar = tmpVarGen.getLastVar
-          val arrayLngVar = genTabulation(indentLvl)+CInt.toString+" "+tmpVarGen.getFreshVar+" = *("+arrayLastVar+"-1);\n"
-          return arrayString.append(arrayLngVar)
+          singleExprBuilder(CInt, arr, "*(", "-1)", Some("ArrLng"))
           
         case NewIntArray(size: ExprTree) =>
-          val sizeExpr = cGenExpr(size)
-          val sizeVar = tmpVarGen.getLastVar
-          val arrayDecl = genTabulation(indentLvl)+CIntArray.toString+" "+tmpVarGen.getFreshVar+" = arrayAlloc("+sizeVar +");\n"
-          return sizeExpr.append(arrayDecl)
+          singleExprBuilder(CIntArray, size, "arrayAlloc(", ")", Some("NArr"))
           
         // Object-oriented expressions
         case This() =>
-          return new StringBuilder(genTabulation(indentLvl)+"void *"+tmpVarGen.getFreshVar+" = this;\n")
+          return new StringBuilder(genTabulation(indentLvl)+"void *"+tmpVarGen.getFreshVar(Some("This"))+" = this;\n")
         
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) =>
           
@@ -445,27 +426,27 @@ object COutputGeneration extends Pipeline[Program, Unit] {
           }
           
           val methodCallString = "((struct "+structCast+" *)"+objLastVar+")->"+ meth.value +"("+ arguments.mkString(", ") +")"
-          return objExprString.append(argsCode).append(genTabulation(indentLvl)+retType+" "+tmpVarGen.getFreshVar+" = "+methodCallString+";\n")
+          return objExprString.append(argsCode).append(genTabulation(indentLvl)+retType+" "+tmpVarGen.getFreshVar(Some("MetCal"))+" = "+methodCallString+";\n")
           
         case New(tpe: Identifier) =>
-          return new StringBuilder(genTabulation(indentLvl)+"void * "+tmpVarGen.getFreshVar+" = new(n"+ tpe.value.toString() +");\n")
+          return new StringBuilder(genTabulation(indentLvl)+"void * "+tmpVarGen.getFreshVar(Some("NewCl"))+" = new(n"+ tpe.value.toString() +");\n")
           
         // Literals
         case IntLit(value: Int) => 
-          return new StringBuilder(genTabulation(indentLvl)+"int "+tmpVarGen.getFreshVar+" = "+value.toString+";\n")
+          return new StringBuilder(genTabulation(indentLvl)+"int "+tmpVarGen.getFreshVar(Some("Int"))+" = "+value.toString+";\n")
           
         case StringLit(value: String) =>
-          return new StringBuilder(genTabulation(indentLvl)+"char * "+tmpVarGen.getFreshVar+" = \""+value+"\";\n")
+          return new StringBuilder(genTabulation(indentLvl)+"char * "+tmpVarGen.getFreshVar(Some("Str"))+" = \""+value+"\";\n")
           
         case True() => 
-          return new StringBuilder(genTabulation(indentLvl)+"int "+tmpVarGen.getFreshVar+" = 1;\n")
+          return new StringBuilder(genTabulation(indentLvl)+"int "+tmpVarGen.getFreshVar(Some("Tru"))+" = 1;\n")
           
         case False() => 
-          return new StringBuilder(genTabulation(indentLvl)+"int "+tmpVarGen.getFreshVar+" = 0;\n")
+          return new StringBuilder(genTabulation(indentLvl)+"int "+tmpVarGen.getFreshVar(Some("Fals"))+" = 0;\n")
           
         case Variable(id: Identifier) =>
           val varTrueName = determineVarOrField(id, mt)
-          return new StringBuilder(genTabulation(indentLvl)+toCType(id.getType).toString+" "+tmpVarGen.getFreshVar+" = "+varTrueName+";\n")
+          return new StringBuilder(genTabulation(indentLvl)+toCType(id.getType).toString+" "+tmpVarGen.getFreshVar(Some("Var"))+" = "+varTrueName+";\n")
       }
     }
     
@@ -512,9 +493,11 @@ object COutputGeneration extends Pipeline[Program, Unit] {
       sourceName.replaceAll(".tool", "Tool.c")
     }else sourceName + "Tool.c"
     
+    
+    //we need an header to be able to call New from every method's body
     val headerFileName = outputName.dropRight(1)+"h"
     macros.append("#include \""+headerFileName+"\"\n")
-     
+    
     val headerFileCode = "#ifndef "+outputName.dropRight(2).toUpperCase()+"_H_\n#define "+outputName.dropRight(2).toUpperCase()+"_H_\n"+
                           "void * new(int type);\n\n#endif"
 
