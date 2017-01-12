@@ -119,37 +119,6 @@ initialization of a Tool's object in C programming language.
 \begin{lstlisting}[caption={In the case of the example used in the section 2. Examples}, captionpos=b]
 void * new(int type){
   void * object;
-    switch(type){
-      case nAnimal:
-        object = malloc(sizeof(struct Animal));
-        break;
-
-      case nDog:
-        object = malloc(sizeof(struct Dog));
-        ((struct Dog*) object)->bark = Dog_bark;
-        break;
-      default:
-        return NULL;
-    }
-  return object;
-}
-\end{lstlisting}
-At the end, the functions
-\newline
-\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void helper_reverse_plus(char str[], int len)|},
-\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|char* itoa(int num)|} and
-\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|int * arrayAlloc(int size)|} are constructed.
-Their usefulness will be explained in the subsections to come.
-\newline
-Finally all these snippet of C code are concatenated and written in a .c file.
-\newline
-\paragraph{Dynamic dispatch}
-Dynamic dispatch is accomplished during the default construction of a new Instance of a class.
-In Tool, there is only on type of constructor, the default one.
-One idea we borrowed from our reference book\footnote{www.cs.rit.edu/~ats/books/ooc.pdf at page 11, si jamais faudra mettre ca dans la bibliography à la fin scuse} was to have a default method be outputed called ``new'' which would take care or creating a new Instance of a struct and returning it as a generic pointer ``void *''. This function is generated dynamically for each program according to the different classes.
-\begin{lstlisting}
-void * new(int type){
-  void * object;
   switch(type){
     case nAnimal:
       object = malloc(sizeof(struct Animal));
@@ -165,6 +134,20 @@ void * new(int type){
   return object;
 }
 \end{lstlisting}
+At the end, the functions
+\newline
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void helper_reverse_plus(char str[], int len)|},
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|char* itoa(int num)|} and
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|int * arrayAlloc(int size)|} are constructed.
+Their usefulness will be explained in the subsections to come.
+\newline
+Finally all these snippet of C code are concatenated and written in a .c file.
+\newline
+\paragraph{Dynamic dispatch}
+Dynamic dispatch is accomplished during the default construction of a new Instance of a class.
+In Tool, there is only on type of constructor, the default one.
+One idea we borrowed from our reference book\footnote{www.cs.rit.edu/~ats/books/ooc.pdf at page 11, si jamais faudra mettre ca dans la bibliography à la fin scuse} was to have a default method be outputed called ``new'' which would take care or creating a new Instance of a struct and returning it as a generic pointer ``void *''. This function was already presented in the overview.\\
+
 And according to the overriding of the methods or not, this method also takes care of setting the value of the struct's function pointers to the corresponding function. To be sure that calling {\lstinline[basicstyle=\small\ttfamily]|sleep|} on an instance of Animal will get the correct pointer, for inherited structs, we make sure they hold the same fields in the same place than their parent struct. If we look at the struct definitions of example 2, we clearly see that the function pointer {\lstinline[basicstyle=\small\ttfamily]|sleep|} is held in the same place in both structs. Therefore, if we consider this Tool code snippet :
 
 \lstset{style=customtool}
