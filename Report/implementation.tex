@@ -1,5 +1,3 @@
-This is a very important section, you explain to us how you made it work.
-
 \subsection{Theoretical Background}
 The only background needed for this extension is knowing the tool's AST and the C language.
 However since we are trying to emulate an object-oriented language into one that is not,
@@ -145,8 +143,6 @@ Their usefulness will be explained in the subsections to come.
 \newline
 Finally all these snippet of C code are concatenated and written in a .c file.
 \newline
-\paragraph{Inheritance}
-
 \paragraph{Dynamic dispatch}
 Dynamic dispatch is accomplished during the default construction of a new Instance of a class.
 In Tool, there is only on type of constructor, the default one.
@@ -264,11 +260,17 @@ To tackle this problem, we created a simple object: \say{tmpVarGen}.
 \begin{lstlisting}
 object tmpVarGen{
   private var counter = 0
-    def getFreshVar: String = {
-      counter += 1
-      return "tmp"+counter
+  private var lastSuffix = ""
+  def getFreshVar(suffix: Option[String]): String = {
+    counter += 1
+    val sffx = suffix match{
+      case Some(s) => s
+      case None => ""
     }
-    def getLastVar: String = "tmp"+counter
+    lastSuffix = sffx
+    return "tmp"+sffx+counter
+  }
+  def getLastVar: String = "tmp"+lastSuffix+counter
 }
 \end{lstlisting}
 It is used to have a unique variable name. It has two methods.
@@ -296,5 +298,3 @@ Afterward the equal expression as known in C: \say{lhs == rhs} is written using 
 At the end we append all element together. Thus one Tool line to write an equality is
 three lines in C programming language.
 \newline
-\paragraph{Tabulation}
-% TODO faire un chapitre là-dessus?! Tu penses que c'est pertinent?!
