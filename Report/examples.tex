@@ -14,7 +14,8 @@ class Dog extends Animal{
     return "Woof!";
   }
 
-  override def sleep(): String = {
+  //override
+  def sleep(): String = {
     return "zzz... wouaf... zzz...";
   }
 }
@@ -29,10 +30,10 @@ struct Animal{
 };
 
 struct Dog{
-	int isAPet;
-	int speed;
+  int isAPet;
+  int speed;
   char * (*sleep)(void *);
-	char * (*bark)(void *);
+  char * (*bark)(void *);
 };
 
 char * Animal_sleep (void * this) {
@@ -53,15 +54,15 @@ are members of the structure. They are declared in the same fashion.
 The variables of the class \say{Animal}, they also find themselves in the \say{Dog} structure
 because the class \say{Dog} inherits from the class \say{Animal}.
 \newline
-Contrariwise the method of the class is declared outside of the structure.
-In C, a structure can't have a function declaration as a member. The function shall
+Contrariwise to Tool the methods of the class are declared outside of the structure.
+In C, a structure can't have a function declaration as a member, thus the function shall
 be declared outside. But the structure has a pointer to the function.
 \newline
 The function is declared with the name of the class as prefix followed by an underscore.
-Thus the belonging to the \say{Dog} class is suggested.
+Thus the belonging to the \say{Dog} class is suggested, and this allows overriding (a same function with two implementation according to the class).
 \newline
 Therefore this is how the C code mimics the behavior of an object-oriented class.
 \newline
-There exists other dilemma like method chaining, dynamic dispatch,\ldots, which be discussed
+There exists other dilemma like method chaining, dynamic dispatch,\ldots, which will be discussed
 in the implementation section.
 \newline

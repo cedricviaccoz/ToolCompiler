@@ -3,5 +3,7 @@
 %In any case, describe how you could further extend your compiler in the
 %direction you chose. This section should convince us that you understand the
 %challenges of writing a good compiler for high-level programming languages.
-The aim of the project, to output C, has been reached.
+The aim of the project, to output C, has been reached. The C programs outputed can be compiled on gcc and running them will output the same result than if the original Tool was runned on the JVM.\\
+However enhancements could be done to produce better program. Firstly, the problem we encountered about method chaining forced us to print intermediate variable for each expression. Even though it doesn't change the functionnality of the program, it makes the output more difficult to be read by humans. A new model for object-oriented in C could be conceived to make method chaining more straight-forward. The struct methods could not have to hold a pointer to the struct itself as first argument, and instead accessing a registry of all classes/struct produced to get the reference to their class and access the fields.\\
+Another enhancement would be to include a garbage collector\footnote{ref necessaire peut être} to our program. In our implementation, instances of classe and array are allocated but never freed, thus making memory leaks. A simple garbage collector mechanic could be printed with the program to deallocate the pointers when reaching the end of the scope. 
 \newline
