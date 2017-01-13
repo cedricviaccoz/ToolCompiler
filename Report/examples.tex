@@ -1,4 +1,4 @@
-The example below presents how a class and the inheritance could be depicted in C programming language.
+The example below presents how a class and the inheritance could be depicted in the C programming language.
 \lstset{style=customtool}
 \begin{lstlisting}
 class Animal{
@@ -48,21 +48,21 @@ char * Dog_bark (void * this) {
   // some code that will be depicted in the implementation part
 }
 \end{lstlisting}
-The class are represented in C by a structure. The variables of the class
+Classes are represented in C by a structure. The variables of the class
 are members of the structure. They are declared in the same fashion.
 \newline
-The variables of the class \say{Animal}, they also find themselves in the \say{Dog} structure
+The variables of the class \say{Animal}, are also located in the \say{Dog} structure
 because the class \say{Dog} inherits from the class \say{Animal}.
 \newline
-Contrariwise to Tool the methods of the class are declared outside of the structure.
-In C, a structure can't have a function declaration as a member, thus the function shall
-be declared outside. But the structure has a pointer to the function.
+Contrariwise to Tool, the methods of the class are declared outside of the structure.
+In C, a structure can't have a function declaration as a member, thus the functions should
+be declared outside, and the structure holds a pointer to the function.
 \newline
-The function is declared with the name of the class as prefix followed by an underscore.
-Thus the belonging to the \say{Dog} class is suggested, and this allows overriding (a same function with two implementation according to the class).
+The function is declared with the name of the class as a prefix followed by an underscore.
+Thus the belonging to the \say{Dog} class is suggested, and this allows overriding (a same function with two implementations according to the class).
 \newline
 Therefore this is how the C code mimics the behavior of an object-oriented class.
 \newline
-There exists other dilemma like method chaining, dynamic dispatch,\ldots, which will be discussed
+There exists other dilemmas like method chaining, dynamic dispatch,\ldots, which will be discussed
 in the implementation section.
 \newline

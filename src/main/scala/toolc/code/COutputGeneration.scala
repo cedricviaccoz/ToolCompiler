@@ -287,36 +287,9 @@ object COutputGeneration extends Pipeline[Program, Unit] {
       expr match {
         case And(lhs, rhs) =>
           operatorExprBuilder(CInt, lhs, rhs, " && ", "", Some("And"))
-          /*val tabLvl = genTabulation(indentLvl)
-          val lhsString = cGenExpr(lhs)
-          val lhsLastVar = tmpVarGen.getLastVar
-          
-          val resultVar = tmpVarGen.getFreshVar(Some("AndInterm")) 
-          val defaultAssign = tabLvl+"int "+resultVar+" = "+lhsLastVar+";\n"
-          
-          val shortCircFalse = genTabulation(indentLvl)+"if("+lhsLastVar+"){\n"
-          val rhsString = cGenExpr(rhs)(indentLvl+1, mt)
-          val rhsLastVar = tmpVarGen.getLastVar
-          val andStmt = tabLvl+tab+"int "+resultVar+" = "+rhsLastVar+";\n"+tabLvl+"}\n"
-          val andExprResultVar = tabLvl+CInt.toString()+" "+tmpVarGen.getFreshVar(Some("And"))+" = "+resultVar+";\n"
-          return lhsString.append(defaultAssign).append(shortCircFalse).append(rhsString).append(andStmt).append(andExprResultVar)*/
           
         case Or(lhs, rhs) =>
           operatorExprBuilder(CInt, lhs, rhs, " || ", "", Some("And"))
-          /*val tabLvl = genTabulation(indentLvl)
-          val lhsString = cGenExpr(lhs)
-          val lhsLastVar = tmpVarGen.getLastVar
-          
-          val resultVar = tmpVarGen.getFreshVar(Some("OrInterm")) 
-          val defaultAssign = tabLvl+"int "+resultVar+" = "+lhsLastVar+";\n"
-          
-          val shortCircTrue = genTabulation(indentLvl)+"if(!"+lhsLastVar+"){\n"
-          val rhsString = cGenExpr(rhs)(indentLvl+1, mt)
-          val rhsLastVar = tmpVarGen.getLastVar
-          val orStmt = tabLvl+tab+"int "+resultVar+" = "+rhsLastVar+";\n"+tabLvl+"}\n"
-          val orExprResultVar = tabLvl+CInt.toString()+" "+tmpVarGen.getFreshVar(Some("Or"))+" = "+resultVar+";\n"
-          return lhsString.append(defaultAssign).append(shortCircTrue).append(rhsString).append(orStmt).append(orExprResultVar)*/
-          
           
         case Not(expr: ExprTree) =>
           singleExprBuilder(CInt, expr, "!", "", Some("Not"))
@@ -598,7 +571,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     new PrintWriter(headerFileName) { write(headerFileCode); close}
   
     /**
-     * then on a terminal just execute "gcc -o toolCProg <NameOfYourFileWoutTool>Tool.c" 
+     * then on a terminal just execute "gcc -o toolCProg <NameOfYourFileWithoutTool>Tool.c" 
      * and then "./toolCProg" and tadam ! you have your tool program produced in C code working just as it worked on the JVM !
      */
   }

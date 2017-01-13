@@ -1,5 +1,5 @@
 \subsection{Theoretical Background}
-The only background needed for this extension is knowing the tool's AST and the C language.
+The only background needed for this extension is knowing the AST of Tool and the C language.
 However since we are trying to emulate an object-oriented language into one that is not,
 the book ``Object-oriented programming with ANSCI-C''\cite{oopBook}
 has been useful for some concepts and it will be referenced throughout this report.
@@ -7,14 +7,14 @@ has been useful for some concepts and it will be referenced throughout this repo
 \subsection{Implementation Details}
 Two files were created to implement this project.
 \subsubsection{Data Type}
-The first one is \say{CDataType.scala}. It contains a class that depicts the C's structure.
+The first one is \say{CDataType.scala}. It contains a class that depicts C structures.
 \lstset{style=customscala}
 \begin{lstlisting}
   class StructDef(val name: String,
     val membersList: ListBuffer[StructMember])
 \end{lstlisting}
- A trait \say{StructMember} is extended by two classes to implement the two kinds of structure's members,
- which are a variable or a pointer to a function (as explained in section 2. Examples).
+ A trait \say{StructMember} is extended by two classes to implement the two kinds of structure members,
+ which are a variable or a pointer to a function (as explained in section 2).
  The pointer to a function holds two fields, one for an internal representation of a C function pointer (the class \say{FunctionPtr}),
  and one for the AST version of the method declaration that should be linked to the pointer.
 
@@ -34,44 +34,44 @@ class FunctionPtr(val name: String,
   // some code
 }
  \end{lstlisting}
-In this file is also defined the CType abstract class. This allows us to represent C version of the Tool types. We only have 4 object that extends this abstract class : CInt, CIntArray, CStruct and CString. There is not an equivalent of the type Bool since boolean values are treated as int in C language. All classes of Tool are represented by the CStruct type, since struct are used to emulate class in our C code printed.
+In this file is also defined the CType abstract class. This allows us to represent a C version of the Tool types. We only have 4 object that extends this abstract class : CInt, CIntArray, CStruct and CString. There is no equivalent of the Bool type since boolean values are treated as ints in C. All classes of Tool are represented by the CStruct type, since structs are used to emulate class in our printed C code.
 
  \subsubsection{Code Generation}
-The second file is \say{COutputGeneration.scala}. Its skeleton and behavior is based on the \say{CodeGeneration.scala} completed
-to output binary code for the Java Virtual Machine.
+The second file is \say{COutputGeneration.scala}. Its skeleton and behavior are based on the \say{CodeGeneration.scala} completed
+to output binary code for the Java Virtual Machine.\\
 The program uses the same architecture of methods like: \say{cGenMethod}, \say{cGenStats}, \say{cGenExpr}.
-Each of this method returns a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|}.
+Each method returns a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|}.
 \newline
-The final output is two files, a .h and .c, which encloses all the StringBuilders concatened.
+The final output are two files, one .h and one .c, which contains all the concatened StringBuilders.
 \newline
 \paragraph{Overview}
 The main method of the object
 \newline
 \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|COutputGeneration|} is
 \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|def run(ctx: Context)(prog: Program)|}, which takes
-in parameter the AST of the code. % TODO correct?!
+as a parameter the AST of the code. % TODO correct?!
 \newline
 The method starts by creating a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|} for the preprocessor directives.
 It includes the headers \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|stdio.h, string.h and stdlib.h|}.
 It contains \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|#define INT_MAX_LENGTH 12|}, which is useful
-in order to have correct Int to string of characters concatenation (12 being the number of digit of $-2^{32}$, the most wide number and int can hold.).
-It also encloses the definition of default constructor macros for every classes of the program. We will get back on this point later in the section implementation
-\begin{lstlisting}[caption={In the case of the example used in section 2, this would be the macros produced}, captionpos=b]
+in order to have correct Int to String character concatenation (12 being the number of digit of $-2^{32}$, the longest number an int can hold.).
+It also contains the definition of default constructor macros for every class of the program. We will get back to this point later in this section.
+\begin{lstlisting}[caption={In the case of the example used in section 2, this would be the produced macros}, captionpos=b]
 #define nAnimal 0
 #define nDog 1
 \end{lstlisting}
-Finally, a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|} contains the inclusion of the file's header,
+Finally, a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|} contains the inclusion of the file header,
 which is directly created.
 \newline
-Afterward a method takes care of generating the structures corresponding to the Tool's classes:
+Afterward a method takes care of generating the structures corresponding to the classes of Tool:
 \newline
 \lstset{style=customscala}{\lstinline[basicstyle=\small\ttfamily]|def genStructDef(ct: ClassDecl): StructDef|}.
 The method takes as only parameter a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|ClassDecl|}
-and returns a corresponding \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StructDef|},
-which was presented in section 3.2.1 Data Type. Then the \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StructDef|}'s method
-\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|toStringRepr|} is called to return the structures as String to be printed.
+and returns the corresponding \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StructDef|},
+which was presented in section 3.2.1 Data Type. Then the method 
+\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|toStringRepr|} of \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StructDef|} is called to return the structures as Strings to be printed.
 \newline
-Thereafter the method manages the program's methods.
+Thereafter the method manages the program methods.
 \lstset{style=customscala}
 \begin{lstlisting}
 def genMethods(ct: ClassDecl): StringBuilder =
@@ -79,12 +79,12 @@ def genMethods(ct: ClassDecl): StringBuilder =
 \end{lstlisting}
 The method \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|cGenMethod|} traverses the AST node\newline
 {\lstinline[basicstyle=\small\ttfamily]|MethodDecl|} to translate the statements and the expressions
-in C programming language, using the methods {\lstinline[basicstyle=\small\ttfamily]|cGenStats|} and
+in C, using the methods {\lstinline[basicstyle=\small\ttfamily]|cGenStats|} and
 {\lstinline[basicstyle=\small\ttfamily]|cGenExpr|} like in the Code Generation lab.
 The method returns a \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|StringBuilder|}
-representing a function, that corresponds to a Tool's class method.
+representing a function, that corresponds to a class method of Tool.
 \newline
-Then the Tool's main method is translated into C programming language.
+Then the main method of is translated into C.
 \lstset{style=customscala}\begin{lstlisting}
 def genMainMethod(main: MainObject): StringBuilder = {
   val mainMethod = new StringBuilder("int main(void){\n")
@@ -92,9 +92,9 @@ def genMainMethod(main: MainObject): StringBuilder = {
   return mainMethod.append("\treturn 0;\n}")
     }
 \end{lstlisting}
-The \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|genMainMethod|} method receives
-as parameter the AST node \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|MainObject|}.
-It is converted as the \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|main|} function in C programming language.
+The {\lstinline[basicstyle=\small\ttfamily]|genMainMethod|} method receives
+as a parameter the AST node \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|MainObject|}.
+It is converted as the \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|main|} function in C.
 \begin{lstlisting}
 int main(void){
   return 0;
@@ -107,19 +107,19 @@ by the method {\lstinline[basicstyle=\small\ttfamily]|cGenStat|} and
 the returned {\lstinline[basicstyle=\small\ttfamily]|StringBuilder(s)|}
 is the body of the C {\lstinline[basicstyle=\small\ttfamily]|main|} function.
 \newline
-In the {\lstinline[basicstyle=\small\ttfamily]|run|} method, there exists
+In the {\lstinline[basicstyle=\small\ttfamily]|run|} method, there is
 an object
 \newline
-\lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|defaultConstructor|}.
-It represents the construction of the default constructor. At the end of the run method, it will produce an helper C function to be printed with every program. The function is called
+{\lstinline[basicstyle=\small\ttfamily]|defaultConstructor|},
+that represents the construction of the default constructor. At the end of the {\lstinline[basicstyle=\small\ttfamily]|run|} method, it will produce a C helper function to be printed with every program. The function is called
 \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|new|}.
-It takes as only parameter an integer. It is one of the defined integer for each Tool's class,
-that we have seen before in Listing 1. % TODO faudrait-il les afficher de nouveau?? //Cédric: Non je pense pas, je fais juste référéence au listing, ca devrait faire le job.
+It takes as only parameter an integer. It is one of the integers defined for each Tool class,
+that we have seen before, in Listing 1.
 Subsequently a method {\lstinline[basicstyle=\small\ttfamily]|addStructConstructor|}
 takes care of adding a {\lstinline[basicstyle=\small\ttfamily]|case|} element
 to the {\lstinline[basicstyle=\small\ttfamily]|new|} function for a correct
-initialization and allocation of a Tool's object in C programming language.
-\begin{lstlisting}[caption={In the case of the example used in the section 2}, captionpos=b]
+initialization and allocation of a Tool object in C.
+\begin{lstlisting}[caption={In the case of the example used in the section 2.}, captionpos=b]
 void * new(int type){
   void * object;
   switch(type){
@@ -137,22 +137,22 @@ void * new(int type){
   return object;
 }
 \end{lstlisting}
-Since this {\lstinline[basicstyle=\small\ttfamily]|new|} function will be called each time a {\lstinline[basicstyle=\small\ttfamily]|new|} was written in Tool, class methods needs to have it visible. Because {\lstinline[basicstyle=\small\ttfamily]|new|} references all the function defined, it can't be put before them in our outputted C program, so its prototype is included in the .h file. And it is the sole purpose of the .h.\\\\
-At the end, the functions
+Since this {\lstinline[basicstyle=\small\ttfamily]|new|} function will be called each time a {\lstinline[basicstyle=\small\ttfamily]|new|} was written in Tool, class methods need to have it visible. Because {\lstinline[basicstyle=\small\ttfamily]|new|} references all the functions defined, it can't be put before them in our outputted C program, so its prototype is included in the .h file. And it is the sole purpose of the .h.\\\\
+In the end, the functions
 \newline
 \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void helper_reverse_plus(char str[], int len)|},
 \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|char* itoa(int num)|} and
 \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|int * arrayAlloc(int size)|} are constructed.
 Their usefulness will be explained in the subsections to come.
 \newline
-Finally all these snippet of C code are concatenated and written in a .c file.
+Finally all these snippets of C code are concatenated and written in a .c file.
 \newline
 \paragraph{Dynamic dispatch}
 Dynamic dispatch is accomplished during the default construction of a new Instance of a class.
 In Tool, there is only on type of constructor, the default one.
-One idea we borrowed from our reference book\footnote{www.cs.rit.edu/~ats/books/ooc.pdf at page 11, si jamais faudra mettre ca dans la bibliography à la fin scuse} was to have a default method be outputed called {\lstinline[basicstyle=\small\ttfamily]|new|} which would take care or creating a new Instance of a struct and returning it as a generic pointer {\lstinline[basicstyle=\small\ttfamily]|void *|}. This function was already presented in the overview. {\lstinline[basicstyle=\small\ttfamily]|void *|} is the type used in C to represent class, getting class member or function is then accomplished by casting this generic pointer to the corresponding struct.\\
+One idea we borrowed from our reference book\cite{oopBook} (chapter 11, section 4, paragraph \say{Plugging the Memory Leaks})  was to have a default method called {\lstinline[basicstyle=\small\ttfamily]|new|} be outputed which would take care of creating a new Instance of a struct and returning it as a generic pointer {\lstinline[basicstyle=\small\ttfamily]|void *|}. This function was already presented in the overview. {\lstinline[basicstyle=\small\ttfamily]|void *|} is the type used in C to represent classes, getting class members or functions is then accomplished by casting this generic pointer to the corresponding struct.\\
 
-And according to the overriding of the methods or not, this method also takes care of setting the value of the struct's function pointers to the corresponding function. To be sure that calling {\lstinline[basicstyle=\small\ttfamily]|sleep|} on an instance of Animal will get the correct pointer, for inherited structs, we make sure they hold the same fields in the same place than their parent struct. If we look at the struct definitions of example 2, we clearly see that the function pointer {\lstinline[basicstyle=\small\ttfamily]|sleep|} is held in the same place in both structs. Therefore, if we consider this Tool code snippet :
+According to the overriding of the methods or not, this method also takes care of setting the value of the function pointers of the struct to the corresponding function. To be sure that calling {\lstinline[basicstyle=\small\ttfamily]|sleep|} on an instance of Animal will get the correct pointer, for inherited structs, we make sure they hold the same fields in the same place than their parent struct. If we look at the struct definitions of example 2, we clearly see that the function pointer {\lstinline[basicstyle=\small\ttfamily]|sleep|} is held in the same place in both structs. Therefore, if we consider this Tool code snippet:
 
 \lstset{style=customtool}
 \begin{lstlisting}
@@ -173,7 +173,7 @@ class Farm{
   }
 }
 \end{lstlisting}
-Running it will result with the sleep message of animal printed and followed by the sleep message of a dog. This is an exemple of dynamic dispatch. Using casting, then the same result can be obtained in C :
+Running it will result in the sleep message of Animal being printed, followed by the sleep message of Dog. This is an example of dynamic dispatch. Using casting, the same result can be obtained in C :
 
 \lstset{style=customc}
 \begin{lstlisting}
@@ -189,11 +189,11 @@ int main(void){
 }
 \end{lstlisting}
 
-Casting to Animal is made in both case because {\lstinline[basicstyle=\small\ttfamily]|getPet|} returns an instance of Animal so the compiler treat the value returned to be of type ``Animal''. Even if a Dog is returned it will use the {\lstinline[basicstyle=\small\ttfamily]|sleep|} function of the dog since the pointer to {\lstinline[basicstyle=\small\ttfamily]|sleep|} in Dog's struct is in the same place as the one of Animal's struct.
+Casting to Animal is made in both cases because {\lstinline[basicstyle=\small\ttfamily]|getPet|} returns an instance of Animal so the compiler treats the value returned to be of type ``Animal''. Even if a Dog is returned it will use the {\lstinline[basicstyle=\small\ttfamily]|sleep|} function of the dog since the pointer to {\lstinline[basicstyle=\small\ttfamily]|sleep|} in Dog struct is in the same place as the one of Animal struct.
 
 \paragraph{Length of Arrays}
-Another problem encountered was retrieving an array's length. In Tool, getting it is made in the same way as Java, by accessing the field {\lstinline[basicstyle=\small\ttfamily]|length|} of the array. However this cannot be translated easily in C if the array is not statically allocated. The way we treat arrays of ints in our extension is by defining them as a pointer to a value of type int. Then creating a new array of n elements is made by using calloc with n and {\lstinline[basicstyle=\small\ttfamily]|sizeof(int)|} as arguments. The pointer returned points now to a region of the memory that can hold n ints. We will call this pointer ``x''. And since our array is juste a pointer, trying the trick of {\lstinline[basicstyle=\small\ttfamily]|sizeof(x) / sizeof(int)|} to get its length will either be equal to 1 or 2 (depending on the system word size) because {\lstinline[basicstyle=\small\ttfamily]|sizeof(x)|} in this case return the size of the pointer, not the size of the memory this pointer was allocated to.\\
-To resolve this problem, we defined an helper function called {\lstinline[basicstyle=\small\ttfamily]|arrayAlloc|} printed with every program.
+Another problem encountered was retrieving the length of an array. In Tool, getting it is made in the same way as in Java, by accessing the field {\lstinline[basicstyle=\small\ttfamily]|length|} of the array. However this cannot be translated easily in C if the array is not statically allocated. The way we treat arrays of ints in our extension is by defining them as pointers to a value of type int. Then creating a new array of n elements is made by using calloc with {\lstinline[basicstyle=\small\ttfamily]|n|} and {\lstinline[basicstyle=\small\ttfamily]|sizeof(int)|} as arguments. The value returned points now to a region of the memory that can hold {\lstinline[basicstyle=\small\ttfamily]|n|} ints. We will call this pointer ``x''. And since our array is just a pointer, trying the trick of {\lstinline[basicstyle=\small\ttfamily]|sizeof(x) / sizeof(int)|} to get its length will either be equal to 1 or 2 (depending on the word size of the system) because {\lstinline[basicstyle=\small\ttfamily]|sizeof(x)|} in this case returns the size of the pointer, not the size of the memory this pointer was allocated to.\\
+To solve this problem, we defined a helper function called {\lstinline[basicstyle=\small\ttfamily]|arrayAlloc|} \cite{arrayLngTrick} printed with every program.
 
 \begin{lstlisting}
 int * arrayAlloc(int size){
@@ -203,7 +203,7 @@ int * arrayAlloc(int size){
 }
 \end{lstlisting}
 
-What this function does is pretty simple but ingenious. The array is callocated for one more element than the size required, and then the length of this array is stocked at the first place of the callocated array. We return then the value of the pointer incremented by one. Thus, when we need to get the length of the array ``x'', we can get it from the value hold at the place ``-1'' of the pointer ``x''
+What this function does is pretty simple but ingenious. The array is callocated for one more element than the required size, and the length of this array is stored at the first place of the callocated array. We then return the value of the pointer incremented by one. Thus, when we need to get the length of the array ``x'', we can get it from the value stored 1 position before the pointer ``x''
 
 \begin{lstlisting}
 int * x = arrayAlloc(42);
@@ -211,14 +211,14 @@ int xLength = *(x - 1) //xLength is equal to 42.
 \end{lstlisting}
 
 \paragraph{Concatenation}
-The AST node \say{Plus} asked for some attention.
-The Tool language allows to apply the \say{+} operator on Int and String operands.
+The AST node \say{Plus} needs some attention.
+The Tool language allows to apply the \say{+} operator to Int and String operands.
 \newline
-The situation, where the two operands are Int, is straightforward to emulate in C programming language.
-It's also an addition.
+The situation, where the two operands are Ints, is straightforward to emulate in C, since
+it's also just an addition.
 \newline
-The event where the two operands are String is a little bit more tricky.
-It is necessary to allocate memory before concatenate the two string of characters.
+The event where the two operands are Strings is a little bit more tricky.
+It is necessary to allocate memory before concatenating the two Strings of characters.
 \begin{lstlisting}
 strcpy(malloc(strlen(lhsString) + strlen(rhsString) + 1), lhsString, rhsString)
 \end{lstlisting}
@@ -231,11 +231,11 @@ These functions transform an integer into a string of characters and return it.
 These two functions are written in every .c file generated by the compiler.
 
 \paragraph{Method chaining}
-This problem was one, that we had not seen coming.
+This problem was one that we had not seen coming.
 \newline
-In Tool, there is the possibility to write multiple call to a method on one line.
+In Tool, there is the possibility to write multiple calls to a method on one line.
 It works because each method returns an object.
-We can't directly translate it in C programming language with the model we choosed to make object oriented possible.
+We can't directly translate it in C with the model we chose to emulate object oriented programming.
 Our ``methods'' need to have as a first argument a pointer to the struct calling,
 so to make a method call on a struct we would need to write : \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|void * a = new(nA); ((struct A *) a)->foo(a)|}.
 Our variable \lstset{style=customc}{\lstinline[basicstyle=\small\ttfamily]|a|} needs to be referenced two times,
@@ -262,10 +262,10 @@ object tmpVarGen{
 \end{lstlisting}
 It is used to have a unique variable name. It has two methods.
 \say{getLastVar} returns the last created variable name.
-\say{getFreshVar} return a new variable name with a suffix given as argument to make the temporary variable hold information of which expression it represents.
+\say{getFreshVar} returns a new variable name with a suffix given as an argument to make the temporary variable hold the information of which expression it represents.
 \newline
 Now at each evaluation of an AST node, which is an expression, it is important first to evaluate the expressions
-and assign to intermediate variables using the object \say{tmpVarGen}. Next the expression is written using
+and second to assign it to intermediate variables using the object \say{tmpVarGen}. Next the expression is written using
 the intermediate variables.
 \begin{lstlisting}
 case Equals(lhs: ExprTree, rhs: ExprTree) =>
@@ -278,11 +278,11 @@ case Equals(lhs: ExprTree, rhs: ExprTree) =>
     lhsLastVar+" == "+rhsLastVar+";\n"
   return lhsString.append(rhsString).append(andExprResultVar)
 \end{lstlisting}
-Here it is an example with the evaluation of an expression AST node: Equals.
-The left-hand side and right-hand side expressions are first evaulated using the \say{cGenExpr()} method and
-are stored in intermediate variable using the \say{tmpVarGen} object.
+Here is an example with the evaluation of an expression AST node: Equals.
+The left-hand side and right-hand side expressions are first evaluated using the \say{cGenExpr()} method and
+are stored in an intermediate variable using the \say{tmpVarGen} object.
 Afterward the equal expression as known in C: \say{lhs == rhs} is written using the intermediate variable.
-At the end we append all element together. Thus one Tool line to write an equality is
+At the end we append all elements together. Thus one Tool line to write an equality corresponds to
 three lines in C programming language.
 \newline
 The same procedure has been used for all other expressions and also for statements
