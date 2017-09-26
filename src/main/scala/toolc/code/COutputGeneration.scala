@@ -19,10 +19,7 @@ object COutputGeneration extends Pipeline[Program, Unit] {
     private var lastSuffix = ""
     def getFreshVar(suffix: Option[String]): String = {
       counter += 1
-      val sffx = suffix match{
-        case Some(s) => s
-        case None => ""
-      }
+      val sffx = suffix getOrElse ""
       lastSuffix = sffx
       return "tmp"+sffx+counter
     }
