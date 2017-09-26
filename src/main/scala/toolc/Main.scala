@@ -18,6 +18,7 @@ object Main {
     var isJBytecode = false
 
     def rec(args: List[String]): Unit = args match {
+
       case "-bytecode" :: xs =>
         isJBytecode = true
         rec(xs)

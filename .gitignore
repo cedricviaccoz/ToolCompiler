@@ -3,6 +3,15 @@
 /project/target
 /project/project
 /ToolTest/
+/.metadata
+/.settings
+/.tmpbin
+/experiment
+.project
+.classpath
+.cache-main
+*.class
+
 
 #Report
 Report/report.aux
