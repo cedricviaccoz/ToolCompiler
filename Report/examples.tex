@@ -1,0 +1,68 @@
+The example below presents how a class and the inheritance could be depicted in the C programming language.
+\lstset{style=customtool}
+\begin{lstlisting}
+class Animal{
+  var isAPet: Bool;
+  var speed: Int;
+  def sleep(): String = {
+    return "zzz...";
+  }
+}
+
+class Dog extends Animal{
+  def bark(): String = {
+    return "Woof!";
+  }
+
+  //override
+  def sleep(): String = {
+    return "zzz... wouaf... zzz...";
+  }
+}
+\end{lstlisting}
+This Tool code will be pretty-printed in C like this:
+\lstset{style=customc}
+\begin{lstlisting}
+struct Animal{
+	int isAPet;
+	int speed;
+  char * (*sleep)(void *);
+};
+
+struct Dog{
+  int isAPet;
+  int speed;
+  char * (*sleep)(void *);
+  char * (*bark)(void *);
+};
+
+char * Animal_sleep (void * this) {
+  // some code that will be depicted in the implementation part
+}
+
+char * Dog_sleep (void * this) {
+  // some code that will be depicted in the implementation part
+}
+
+char * Dog_bark (void * this) {
+  // some code that will be depicted in the implementation part
+}
+\end{lstlisting}
+Classes are represented in C by a structure. The variables of the class
+are members of the structure. They are declared in the same fashion.
+\newline
+The variables of the class \say{Animal}, are also located in the \say{Dog} structure
+because the class \say{Dog} inherits from the class \say{Animal}.
+\newline
+Contrariwise to Tool, the methods of the class are declared outside of the structure.
+In C, a structure can't have a function declaration as a member, thus the functions should
+be declared outside, and the structure holds a pointer to the function.
+\newline
+The function is declared with the name of the class as a prefix followed by an underscore.
+Thus the belonging to the \say{Dog} class is suggested, and this allows overriding (a same function with two implementations according to the class).
+\newline
+Therefore this is how the C code mimics the behavior of an object-oriented class.
+\newline
+There exists other dilemmas like method chaining, dynamic dispatch,\ldots, which will be discussed
+in the implementation section.
+\newline

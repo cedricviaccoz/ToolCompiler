@@ -222,8 +222,6 @@ object NameAnalysis extends Pipeline[Program, Program] {
     }
 
     def setPSymbols(prog: Program, gs: GlobalScope): Unit = {
-      // TODO: Traverse within each definition of the program
-      //       and attach symbols to Identifiers and "this"
       prog.classes foreach (setCSymbols(_, gs))
       prog.main.stats foreach (setSSymbols(_)(gs, None))
     }

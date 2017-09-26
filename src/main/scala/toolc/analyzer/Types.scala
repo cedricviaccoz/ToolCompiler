@@ -37,7 +37,7 @@ object Types {
   case object TIntArray extends Type {
     override def toString = "Int[]"
   }
-
+  
   case class TClass(classSymbol: ClassSymbol) extends Type {
     override def isSubTypeOf(tpe: Type): Boolean =
       (tpe equals TObject) ||

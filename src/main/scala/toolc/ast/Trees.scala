@@ -19,6 +19,7 @@ object Trees {
       case ms: MethodSymbol =>
         //sys.error("Requesting type of a method identifier.")
         ms.getType
+        
       case ms: MainSymbol =>
         sys.error("Requesting type of main object")
 

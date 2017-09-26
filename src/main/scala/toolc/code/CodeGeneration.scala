@@ -86,6 +86,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
       
       ch.freeze
     }
+    
 
     // Generates code for the main method
     def cGenMain(ch: CodeHandler, stmts: List[StatTree], cname: String): Unit = {

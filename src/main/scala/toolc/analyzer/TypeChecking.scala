@@ -34,9 +34,9 @@ object TypeChecking extends Pipeline[Program, Program] {
         //boolean expression
         case Equals(lhs, rhs) =>
           (lhs.getType, rhs.getType) match {
-            case (TClass(_), TClass(_)) =>
-              tcExpr(lhs, lhs.getType)
-              tcExpr(rhs, rhs.getType)
+            case (lType: TClass, rType: TClass) =>
+              tcExpr(lhs, lType)
+              tcExpr(rhs, rType)
             case (x, y) =>
               if (x equals y) {
                 tcExpr(lhs, x)

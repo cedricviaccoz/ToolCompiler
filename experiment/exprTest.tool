@@ -1,5 +1,4 @@
 program Factorial {
-    println("10! = " + new Fact().computeFactorial(10));
 }
 
 class Fact {
@@ -8,7 +7,11 @@ class Fact {
         if (num < 1)
             num_aux = 1;
         else
-            num_aux = num * (this.computeFactorial(num - 1));
+            num_aux = num;
         return num_aux;
     }
+
+   def alo(x: Int): Int = {
+	return computeFactorial(x); 
+   }
 }
